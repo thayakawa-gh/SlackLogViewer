@@ -1,6 +1,8 @@
 # SlackLogViewer
 This is an application to view json files exported from your Slack workspace with Slack-like GUI. You can browse any messages that cannot be shown in your workspace because of the limit of the free plan. You can also seach for them by some words or regular expression and download files if they are not hidden by the storage limit.
 
+<img src="https://user-images.githubusercontent.com/53743073/95690360-18ed7980-0c52-11eb-92fc-0d92b7fa4eab.png" width="640px">
+
 ### Usage
 This is currently only available for Windows 64bit.
 
