@@ -1,19 +1,25 @@
 #include "filedownloader.h"
 
 FileDownloader::FileDownloader(QUrl url)
-	: mUrl(url)
 {
+	SetUrl(url);
+}
+FileDownloader::FileDownloader()
+{}
+FileDownloader::~FileDownloader()
+{
+	delete mManager;
+	delete mRequest;
+}
+void FileDownloader::SetUrl(QUrl url)
+{
+	mUrl = url;
 	mManager = new QNetworkAccessManager(this);
 	mRequest = new QNetworkRequest(mUrl);
 	connect(mManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(ReplyFinished(QNetworkReply*)));
 	//リダイレクトを許す。でないとダウンロードできないファイルがある。
 	mRequest->setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
 	mManager->get(*mRequest);
-}
-FileDownloader::~FileDownloader()
-{
-	delete mManager;
-	delete mRequest;
 }
 QByteArray FileDownloader::GetDownloadedData() const
 {

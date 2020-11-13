@@ -277,7 +277,7 @@ void SlackLogViewer::LoadChannels()
 {
 	for (int i = mChannelPages->count(); i > 0; i--)
 	{
-		QWidget* widget = mChannelPages->widget(i);
+		QWidget* widget = mChannelPages->widget(0);
 		mChannelPages->removeWidget(widget);
 		widget->deleteLater();
 	}
@@ -359,6 +359,17 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 			return;
 		}
 	}
+
+	{
+		//ReplyListViewの削除
+		mThread->Close();
+	}
+	{
+		//SearchResultViewの削除
+		mSearchView->Close();
+	}
+
+
 	QDir dir = path;
 	gWorkspace = dir.dirName();
 
@@ -412,10 +423,11 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 	}
 	gSettings->setValue("History/LogFilePaths", ws);
 
-	static_cast<ReplyListModel*>(mThread->model())->Close();
 	LoadChannels();
 	LoadUsers();
 	UpdateRecentFiles();
+
+	SetChannel(0);
 }
 void SlackLogViewer::OpenOption()
 {

@@ -7,6 +7,9 @@
 #include <QStyledItemDelegate>
 #include <QLabel>
 #include <QThreadPool>
+#include <QTextBrowser>
+#include <QTextDocumentFragment>
+#include <optional>
 #include "GlobalVariables.h"
 
 QString MrkdwnToHtml(const QString& str);
@@ -14,6 +17,44 @@ QString MrkdwnToHtml(const QString& str);
 class ImageFile;
 class TextFile;
 class OtherFile;
+class FileDownloader;
+
+inline bool Contains(const QString& src, const QString& phrase, bool case_)
+{
+	return src.contains(phrase, case_ ? Qt::CaseSensitive : Qt::CaseInsensitive);
+}
+inline bool Contains(const QString& src, const QStringList& keys, bool case_, bool all)
+{
+	bool found = all;
+	for (const auto& k : keys)
+	{
+		bool contains = src.contains(k, case_ ? Qt::CaseSensitive : Qt::CaseInsensitive);
+		//QTextCursor c = d->find(k, 0, f);
+		if (all)
+		{
+			//一つでも含まれなかった場合は見つからなかった扱い。
+			if (!contains)
+			{
+				found = false;
+				break;
+			}
+		}
+		else
+		{
+			//一つでも含まれればOK。
+			if (contains)
+			{
+				found = true;
+				break;
+			}
+		}
+	}
+	return found;
+}
+inline bool Contains(const QString& src, const QRegularExpression& regex)
+{
+	return src.contains(regex);
+}
 
 class AttachedFile
 {
@@ -36,7 +77,23 @@ public:
 	const QString& GetUserID() const { return mUserID; }
 	const QString& GetTimeStampStr() const { return mTimeStampStr; }
 
-private:
+	bool FileNameContains(const QString& phrase, bool case_) const
+	{
+		return ::Contains(GetFileName(), phrase, case_);
+	}
+	bool FileNameContains(const QStringList& keys, bool case_, bool all) const
+	{
+		return ::Contains(GetFileName(), keys, case_, all);
+	}
+	bool FileNameContains(const QRegularExpression& regex) const
+	{
+		return ::Contains(GetFileName(), regex);
+	}
+	virtual bool FileContentsContains(const QString& phrase, bool case_) const { return false; }
+	virtual bool FileContentsContains(const QStringList& keys, bool case_, bool all) const { return false; }
+	virtual bool FileContentsContains(const QRegularExpression& regex) const { return false; }
+
+protected:
 
 	Type mType;
 	int mFileSize;
@@ -50,21 +107,38 @@ private:
 class ImageFile : public AttachedFile
 {
 public:
+
 	ImageFile(const QJsonObject& o);
+	const QImage& GetImage() const { return mImage; }
+	void ClearImage() { mImage = QImage(); }
+	bool HasImage() const { return !mImage.isNull(); }
+	void RequestDownload(FileDownloader* fd);
+	bool LoadImage();
+
+private:
+
 	void SetImage(const QByteArray& data)
 	{
 		mImage.loadFromData(data);
 	}
-	const QImage& GetImage() const { return mImage; }
-	void ClearImage() { mImage = QImage(); }
-	bool HasImage() const { return !mImage.isNull(); }
-private:
+
 	QImage mImage;
 };
 class TextFile : public AttachedFile
 {
 public:
+
 	TextFile(const QJsonObject& o);
+	void SetText(const QByteArray& data)
+	{
+		mText = data;
+	}
+	void ClearText() { mText.reset(); }
+	bool HasText() const { return mText.has_value(); }
+	void RequestDownload(FileDownloader* fd);
+
+private:
+	std::optional<QByteArray> mText;
 };
 class OtherFile : public AttachedFile
 {
@@ -118,6 +192,16 @@ public:
 	int GetRow() const { return mRow; }
 	const QString& GetUserID() const { return mUserID; }
 	const QString& GetMessage() const { return mMessage; }
+	const QString& GetHtmlMessage() const
+	{
+		if (mHtmlMessage.isEmpty()) mHtmlMessage = MrkdwnToHtml(mMessage);
+		return mHtmlMessage;
+	}
+	const QString& GetPlainMessage() const
+	{
+		if (mPlainMessage.isEmpty()) mPlainMessage = QTextDocumentFragment::fromHtml(GetHtmlMessage()).toPlainText();
+		return mPlainMessage;
+	}
 	const QString& GetTimeStampStr() const { return mTimeStampStr; }
 	const QDateTime& GetTimeStamp() const { return mTimeStamp; }
 	const User& GetUser() const
@@ -141,6 +225,45 @@ public:
 	{
 		if (mTextDocument) mTextDocument.reset();
 	}
+	bool Contains(const QString& phrase, bool case_, bool body, bool user, bool fname, bool fcont)
+	{
+		if (body && ::Contains(GetPlainMessage(), phrase, case_)) return true;
+		if (user && ::Contains(gUsers[GetUserID()].GetName(), phrase, case_)) return true;
+		if (fname && mFiles)
+		{
+			for (auto& f : GetFiles()->GetFiles())
+			{
+				if (f->FileNameContains(phrase, case_)) return true;
+			}
+		}
+		return false;
+	}
+	bool Contains(const QStringList& keys, bool case_, bool all, bool body, bool user, bool fname, bool fcont)
+	{
+		if (body && ::Contains(GetPlainMessage(), keys, case_, all)) return true;
+		if (user && ::Contains(gUsers[GetUserID()].GetName(), keys, case_, all)) return true;
+		if (fname)
+		{
+			for (auto& f : GetFiles()->GetFiles())
+			{
+				if (f->FileNameContains(keys, case_, all)) return true;
+			}
+		}
+		return false;
+	}
+	bool Contains(const QRegularExpression& regex, bool body, bool user, bool fname, bool fcont)
+	{
+		if (body && ::Contains(GetPlainMessage(), regex)) return true;
+		if (user && ::Contains(gUsers[GetUserID()].GetName(), regex)) return true;
+		if (fname)
+		{
+			for (auto& f : GetFiles()->GetFiles())
+			{
+				if (f->FileNameContains(regex)) return true;
+			}
+		}
+		return false;
+	}
 
 	Thread* GetThread() { return mThread; }
 	const Thread* GetThread() const { return mThread; }
@@ -161,6 +284,8 @@ private:
 	QString mMessage;
 	QString mTimeStampStr;
 	QDateTime mTimeStamp;
+	mutable QString mHtmlMessage;
+	mutable QString mPlainMessage;
 	mutable std::unique_ptr<QTextDocument> mTextDocument;
 
 	std::vector<Reaction> mReactions;
@@ -252,24 +377,29 @@ private:
 class MessageListModel;
 class MessageDelegate;
 
-QWidget* CreateMessageWidget(Message& m, QSize namesize, QSize datetimesize, QSize textsize, QSize threadsize, int pwidth, bool has_thread);
-
 class MessageListView : public QListView
 {
 	Q_OBJECT
 public:
+
+	friend class MessageListModel;
+	friend class MessageDelegate;
 
 	MessageListView();
 
 	void Construct(const QString& channel);
 	bool IsConstructed() const { return mConstructed; }
 
-	//clear関数は生成されたQTextDocumentと付随するImageFileを削除しメモリを解放する。
+	//Clear関数は生成されたQTextDocumentと付随するImageFileを削除しメモリを解放する。
 	void Clear();
+	//Close関数はメッセージなども含め丸ごと初期化する。
+	void Close();
 
-	friend class MessageListModel;
-	friend class MessageDelegate;
+	void UpdateCurrentIndex(QPoint pos);
+	void CloseEditorAtSelectedIndex(QPoint pos);
+	bool IsSelectedIndex(QPoint pos);
 
+	virtual void mousePressEvent(QMouseEvent* event) override;
 	virtual void mouseMoveEvent(QMouseEvent* event) override;
 	virtual void wheelEvent(QWheelEvent* event) override;
 	virtual void leaveEvent(QEvent* event) override;
@@ -286,6 +416,7 @@ public slots:
 	bool ScrollToRow(int row);
 	bool JumpToPage(int page);
 	void UpdateCurrentPage();
+	void UpdateSelection(bool b);
 
 signals:
 
@@ -293,7 +424,8 @@ signals:
 
 protected:
 
-	QModelIndex mPreviousIndex;
+	QModelIndex mCurrentIndex;
+	QModelIndex mSelectedIndex;
 	int mPreviousPage;
 	bool mConstructed;
 	std::vector<std::shared_ptr<Message>> mMessages;
@@ -311,7 +443,7 @@ public:
 
 	virtual QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
 	virtual int rowCount(const QModelIndex& parent = QModelIndex()) const override;
-	//virtual int columnCount(const QModelIndex& parent = QModelIndex()) const override;
+	virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
 	virtual QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const override;
 	virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
 	virtual bool canFetchMore(const QModelIndex& parent) const override;
@@ -322,8 +454,7 @@ public:
 public slots:
 
 	virtual void Open(const std::vector<std::shared_ptr<Message>>* m);
-	virtual void DownloadImage(const QModelIndex& index, ImageFile& image);
-	virtual void SetDownloadedImage(FileDownloader* fd, const QModelIndex& index, ImageFile& image);
+	void Close();
 
 signals:
 
@@ -339,12 +470,53 @@ protected:
 
 class SlackLogViewer;
 
+//QWidget* CreateMessageWidget(Message& m, QSize namesize, QSize datetimesize, QSize textsize, QSize threadsize, int pwidth, bool has_thread);
+
+class MessageBrowser : public QTextBrowser
+{
+	virtual void mousePressEvent(QMouseEvent* event) override;
+};
+
+class MessageEditor : public QWidget
+{
+	//別にEditするものではないが、命名規則上。
+	//基底クラスをQFrameにすると、左側にだけボーダーラインのあるReplyListView上で表示したときに微妙に表示位置がずれる。
+	//なので、QWidgetを基底クラスとして、背景色が塗られない点はpaintEventをオーバーライドすることで対応する。
+	Q_OBJECT
+public:
+
+	MessageEditor(MessageListView* view, Message& m,
+				  QSize namesize, QSize datetimesize, QSize textsize, QSize threadsize, int pwidth, bool has_thread);
+
+	MessageListView* GetMessageListView() { return mListView; }
+
+signals:
+
+	void copyAvailable(bool b);
+
+public slots:
+
+	virtual void enterEvent(QEvent* evt) override;
+	virtual void leaveEvent(QEvent* evt) override;
+	virtual void mousePressEvent(QMouseEvent* event) override;
+	virtual void mouseMoveEvent(QMouseEvent* event) override;
+	virtual void paintEvent(QPaintEvent* event) override;
+
+private:
+
+	MessageListView* mListView;
+
+};
+
 class MessageDelegate : public QStyledItemDelegate
 {
 	Q_OBJECT
 public:
 
-	MessageDelegate(QListView* list);
+	MessageDelegate(MessageListView* list);
+
+	QListView* GetListView() { return mListView; }
+	const QListView* GetListView() const { return mListView; }
 
 	virtual QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override;
 	virtual void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
@@ -368,7 +540,7 @@ public:
 
 protected:
 
-	QListView* mListView;
+	MessageListView* mListView;
 };
 
 #endif

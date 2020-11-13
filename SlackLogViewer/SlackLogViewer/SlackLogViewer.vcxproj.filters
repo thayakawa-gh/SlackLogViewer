@@ -36,10 +36,10 @@
     <ClCompile Include="FileDownloader.cpp" />
     <ClCompile Include="GlobalVariables.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="MessageListView.cpp" />
     <ClCompile Include="ReplyListView.cpp" />
     <ClCompile Include="MenuBar.cpp" />
     <ClCompile Include="SearchResultList.cpp" />
+    <ClCompile Include="MessageListView.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="DocumentView.h" />

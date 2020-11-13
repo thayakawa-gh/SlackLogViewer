@@ -5,29 +5,6 @@
 #include "GlobalVariables.h"
 #include <QScrollBar>
 
-ReplyListView::ReplyListView()
-{
-	setMouseTracking(true);
-	setVerticalScrollMode(ScrollPerPixel);
-	verticalScrollBar()->setSingleStep(gSettings->value("ScrollStep").toInt());
-}
-
-
-void ReplyListView::mouseMoveEvent(QMouseEvent* event)
-{
-	QModelIndex index = indexAt(event->pos());
-	if (index == mPreviousIndex || !index.isValid()) return QListView::mouseMoveEvent(event);
-	closePersistentEditor(mPreviousIndex);
-	mPreviousIndex = index;
-	openPersistentEditor(index);
-	QListView::mouseMoveEvent(event);
-}
-void ReplyListView::leaveEvent(QEvent* event)
-{
-	closePersistentEditor(mPreviousIndex);
-	mPreviousIndex = QModelIndex();
-	QListView::leaveEvent(event);
-}
 bool ReplyListView::ScrollToRow(int row)
 {
 	ReplyListModel* model = static_cast<ReplyListModel*>(this->model());
@@ -38,6 +15,10 @@ bool ReplyListView::ScrollToRow(int row)
 	}
 	scrollTo(model->index(row, 0));
 	return true;
+}
+void ReplyListView::Close()
+{
+	static_cast<ReplyListModel*>(model())->Close();
 }
 
 ReplyListModel::ReplyListModel(QListView* list)
@@ -66,7 +47,7 @@ QModelIndex ReplyListModel::index(int row, int, const QModelIndex& parent) const
 	if (row == 1) return createIndex(row, 0, (void*)mMessages);
 	return createIndex(row, 0, (void*)(*mMessages)[(size_t)row - 2].get());
 }
-bool ReplyListModel::insertRows(int row, int count, const QModelIndex& parent)
+/*bool ReplyListModel::insertRows(int row, int count, const QModelIndex& parent)
 {
 	beginInsertRows(parent, row, row + count - 1);
 	mSize += count;
@@ -79,7 +60,7 @@ bool ReplyListModel::removeRows(int row, int count, const QModelIndex& parent)
 	mSize -= count;
 	endRemoveRows();
 	return true;
-}
+}*/
 bool ReplyListModel::canFetchMore(const QModelIndex& parent) const
 {
 	if (parent.isValid()) return false;
@@ -159,13 +140,19 @@ void ReplyDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option,
 }
 QWidget* ReplyDelegate::createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
+	//MessageDelegateの場合と違い、
+	//1. row == 1のときはEditorを生成しない(親メッセージとリプライとのボーダーなので)
+	//2. 親メッセージに対してもthreadボタンは表示しない(スレッドを持たないものとして扱う)
+	//という2点が異なる。
+	if (!index.isValid()) return nullptr;
 	if (index.row() == 1) return nullptr;
 	Message* m = static_cast<Message*>(index.internalPointer());
-
-	auto* w = CreateMessageWidget(*m,
-								  GetNameSize(option, index), GetDateTimeSize(option, index),
-								  GetTextSize(option, index), GetThreadSize(option, index), parent->width(), false);
+	auto* w = new MessageEditor(mListView, *m,
+								GetNameSize(option, index), GetDateTimeSize(option, index),
+								GetTextSize(option, index), GetThreadSize(option, index), parent->width(), false);
+	connect(w, &MessageEditor::copyAvailable, mListView, &MessageListView::UpdateSelection);
 	w->setParent(parent);
+	w->setStyleSheet("QWidget { border-left: 0px; }");
 	return w;
 }
 QSize ReplyDelegate::GetBorderSize(const QStyleOptionViewItem& option, const QModelIndex& index) const

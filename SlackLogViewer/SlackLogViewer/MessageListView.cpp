@@ -30,7 +30,7 @@ void MrkdwnToHtml_impl(QString& str)
 {
 	//絵文字
 	{
-		QRegularExpression matchemoji(":[a-zA-Z0-9’._\\+\\-&ãçéíôÅ]+?:");
+		static const QRegularExpression matchemoji(":[a-zA-Z0-9’._\\+\\-&ãçéíôÅ]+?:");
 		auto match = matchemoji.match(str);
 		while (match.hasMatch())
 		{
@@ -49,7 +49,7 @@ void MrkdwnToHtml_impl(QString& str)
 	}
 	//username
 	{
-		QRegularExpression matchuser("<@[a-zA-Z0-9]+>");
+		static const QRegularExpression matchuser("<@[a-zA-Z0-9]+>");
 		auto match = matchuser.match(str);
 		while (match.hasMatch())
 		{
@@ -73,7 +73,7 @@ void MrkdwnToHtml_impl(QString& str)
 	}
 	//channel
 	{
-		QRegularExpression matchch("<#[a-zA-Z0-9]+\\|[^>]+>");
+		static const QRegularExpression matchch("<#[a-zA-Z0-9]+\\|[^>]+>");
 		auto match = matchch.match(str);
 		while (match.hasMatch())
 		{
@@ -96,7 +96,7 @@ void MrkdwnToHtml_impl(QString& str)
 	}
 	//url
 	{
-		QRegularExpression matchurl("<http(s?):([^\\s]+)>");
+		static const QRegularExpression matchurl("<http(s?):([^\\s]+)>");
 		auto match = matchurl.match(str);
 		while (match.hasMatch())
 		{
@@ -110,20 +110,24 @@ void MrkdwnToHtml_impl(QString& str)
 	}
 
 	//bold
-	str.replace(QRegularExpression("(^|[\\s]+)\\*([^\\n]*?)\\*($|[\\s]+)"), "\\1<b>\\2</b>\\3");
+	static const QRegularExpression bold("(^|[\\s]+)\\*([^\\n]*?)\\*($|[\\s]+)");
+	str.replace(bold, "\\1<b>\\2</b>\\3");
 
 	//italic
-	str.replace(QRegularExpression("(^|[\\s]+)_([^\\n]*?)_($|[\\s]+)"), "\\1<i>\\2</i>\\3");
+	static const QRegularExpression italic("(^|[\\s]+)_([^\\n]*?)_($|[\\s]+)");
+	str.replace(italic, "\\1<i>\\2</i>\\3");
 
 	//strike
-	str.replace(QRegularExpression("(^|[\\s]+)~([^\\n]*?)~($|[\\s]+)"), "\\1<s>\\2</s>\\3");
+	static const QRegularExpression strike("(^|[\\s]+)~([^\\n]*?)~($|[\\s]+)");
+	str.replace(strike, "\\1<s>\\2</s>\\3");
 
 	//箇条書き
+	//どうも上手くいかないのでやめる。
 	//str.replace(QRegularExpression("(^|\\n)\\*[ ]+([^\\n]*)"), "\\1<ul><li>\\2</li></ul>");
 	//str.replace(QRegularExpression("(^|\\n)[0-9]\\. ([^\\n]*)"), "\\1<ol><li>\\2</li></ol>");
+	//str.replace(QRegularExpression("</ul>\\s*?<ul>"), "");
+	//str.replace(QRegularExpression("</ol>\\s*?<ol>"), "");
 
-	str.replace(QRegularExpression("</ul>\\s*?<ul>"), "");
-	str.replace(QRegularExpression("</ol>\\s*?<ol>"), "");
 	str.replace("\n", "<br>");
 }
 
@@ -169,9 +173,82 @@ AttachedFile::AttachedFile(Type type, const QJsonObject& o)
 ImageFile::ImageFile(const QJsonObject& o)
 	: AttachedFile(IMAGE, o)
 {}
+void ImageFile::RequestDownload(FileDownloader* fd)
+{
+	if (HasImage())
+	{
+		emit fd->Finished();
+		fd->deleteLater();
+		return;
+	}
+	QFile i(mID);
+	if (i.exists())
+	{
+		SetImage(i.readAll());
+		emit fd->Finished();
+		fd->deleteLater();
+		return;
+	}
+	//スロットが呼ばれるタイミングは遅延しているので、
+	//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
+	fd->SetUrl(mUrl);
+	QObject::connect(fd, &FileDownloader::Downloaded, [this, fd]()
+					 {
+						 QByteArray f = fd->GetDownloadedData();
+						 QFile o("Cache\\" + gWorkspace + "\\Images\\" + GetID());
+						 o.open(QIODevice::WriteOnly);
+						 o.write(f);
+						 SetImage(f);
+						 emit fd->Finished();
+						 fd->deleteLater();
+					 });
+	QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]
+					 {
+						 fd->deleteLater();
+					 });
+}
+bool ImageFile::LoadImage()
+{
+	if (HasImage()) return true;
+	QFile f(GetID());
+	if (f.exists())
+	{
+		SetImage(f.readAll());
+		return true;
+	}
+	return false;
+}
+
 TextFile::TextFile(const QJsonObject & o)
 	: AttachedFile(TEXT, o)
 {}
+void TextFile::RequestDownload(FileDownloader * fd)
+{
+	if (HasText())
+	{
+		emit fd->Finished();
+		fd->deleteLater();
+		return;
+	}
+	//スロットが呼ばれるタイミングは遅延しているので、
+	//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
+	fd->SetUrl(mUrl);
+	QObject::connect(fd, &FileDownloader::Downloaded, [this, fd]()
+					 {
+						 QByteArray f = fd->GetDownloadedData();
+						 QFile o("Cache\\" + gWorkspace + "\\Images\\" + GetID());
+						 o.open(QIODevice::WriteOnly);
+						 o.write(f);
+						 SetText(f);
+						 emit fd->Finished();
+						 fd->deleteLater();
+					 });
+	QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]
+					 {
+						 fd->deleteLater();
+					 });
+}
+
 OtherFile::OtherFile(const QJsonObject & o)
 	: AttachedFile(OTHER, o)
 {}
@@ -252,8 +329,7 @@ Message::Message(int ch, int row, const QJsonObject& o, Thread& thread)
 void Message::CreateTextDocument() const
 {
 	mTextDocument = std::make_unique<QTextDocument>();
-	QString html = MrkdwnToHtml(mMessage);
-	mTextDocument->setHtml(html);
+	mTextDocument->setHtml(GetHtmlMessage());
 }
 bool Message::IsReply() const
 {
@@ -422,7 +498,7 @@ ThreadWidget::ThreadWidget(Message& m, QSize threadsize)
 	setFixedHeight(threadsize.height());
 	setFixedWidth(512);
 	QHBoxLayout* l = new QHBoxLayout();
-	l->setContentsMargins(gSpacing, gSpacing, gSpacing, gSpacing);
+	l->setContentsMargins(gSpacing - 1, gSpacing - 1, gSpacing - 1, gSpacing - 1);
 	l->setSpacing(gSpacing);
 	const Thread* th = m.GetThread();
 	for (auto& u : th->GetReplyUsers())
@@ -451,7 +527,7 @@ ThreadWidget::ThreadWidget(Message& m, QSize threadsize)
 	l->addWidget(mViewMessage);
 	l->addStretch();
 	setLayout(l);
-	setStyleSheet("border: 0px;");
+	setStyleSheet("border: 1px solid rgb(239, 239, 239);");
 	setCursor(Qt::PointingHandCursor);
 }
 
@@ -461,166 +537,13 @@ void ThreadWidget::mousePressEvent(QMouseEvent* event)
 }
 void ThreadWidget::enterEvent(QEvent* evt)
 {
-	setStyleSheet("background-color: rgb(255, 255, 255); border: 0px; border-radius: 5px;");
+	setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid rgb(128, 128, 128); border-radius: 5px;");
 	mViewMessage->setVisible(true);
 }
 void ThreadWidget::leaveEvent(QEvent* evt)
 {
-	setStyleSheet("border: 0px;");
+	setStyleSheet("border: 1px solid rgb(239, 239, 239);");
 	mViewMessage->setVisible(false);
-}
-
-QWidget* CreateMessageWidget(Message& m, QSize namesize, QSize datetimesize, QSize textsize, QSize threadsize, int pwidth, bool has_thread)
-{
-	QWidget* w = new QWidget();
-	w->setStyleSheet("background-color: rgb(239, 239, 239); border: 0px;");
-	w->setAutoFillBackground(false);
-	QHBoxLayout* layout = new QHBoxLayout();
-	layout->setContentsMargins(gLeftMargin, gTopMargin, gRightMargin, gBottomMargin);
-	layout->setSpacing(gSpacing);
-
-	{
-		//icon
-		QPixmap icon(m.GetUser().GetIcon().scaled(QSize(36, 36)));
-		QLabel* label = new QLabel();
-		label->setStyleSheet("border: 0px;");
-		label->setPixmap(icon);
-		layout->addWidget(label);
-		layout->setAlignment(label, Qt::AlignTop | Qt::AlignLeft);
-	}
-	QVBoxLayout* text = new QVBoxLayout();
-	text->setContentsMargins(0, 0, 0, 0);
-	text->setSpacing(gSpacing);
-	layout->addLayout(text);
-	QHBoxLayout* nmdt = new QHBoxLayout();
-	nmdt->setContentsMargins(0, 0, 0, 0);
-	nmdt->setSpacing(gSpacing);
-	text->addLayout(nmdt);
-	{
-		//name
-		const QString& n = m.GetUser().GetName();
-		QLabel* name = nullptr;
-		if (n.isEmpty()) name = new QLabel("noname");
-		else name = new QLabel(n);
-		name->setStyleSheet("border: 0px;");
-		name->setFixedSize(namesize);
-		QFont f;
-		f.setPointSizeF(GetNamePointSize());
-		f.setBold(true);
-		name->setFont(f);
-		nmdt->addWidget(name);
-	}
-	{
-		//datetime
-		QLabel* time = new QLabel(m.GetTimeStampStr());
-		time->setStyleSheet("color: rgb(64, 64, 64); border: 0px;");
-		time->setFixedHeight(datetimesize.height());
-		QFont f;
-		f.setPointSizeF(GetDateTimePointSize());
-		time->setFont(f);
-		nmdt->addWidget(time);
-		//nmdt->setAlignment(time, Qt::AlignBottom | Qt::AlignLeft);
-	}
-	nmdt->addStretch();
-	{
-		//message
-		QTextBrowser* tb = new QTextBrowser();
-		//int height = tb->heightForWidth(tb->width());
-		tb->setFixedSize(textsize);
-		tb->setOpenExternalLinks(true);
-		tb->setStyleSheet("border: 0px;");
-		QString html;
-		html += MrkdwnToHtml(m.GetMessage());
-		tb->setHtml(html);
-		//tb->setHtml(m.GetTextDocument()->toHtml());
-		//tb->setDocument(m.GetTextDocument());
-		text->addWidget(tb);
-	}
-	if (m.GetFiles() != nullptr)
-	{
-		//Files
-		const auto* files = m.GetFiles();
-		for (auto& f : files->GetFiles())
-		{
-			if (f->IsImage())
-			{
-				ImageWidget* im = new ImageWidget(static_cast<const ImageFile*>(f.get()), pwidth);
-				text->addWidget(im);
-				text->setAlignment(im, Qt::AlignLeft);
-				QObject::connect(im, &ImageWidget::clicked, MainWindow::Get(), &SlackLogViewer::OpenImage);
-			}
-			else
-			{
-				DocumentWidget* doc = new DocumentWidget(f.get(), pwidth);
-				text->addWidget(doc);
-				text->setAlignment(doc, Qt::AlignLeft);
-				if (f->IsText())
-				{
-					QObject::connect(doc, &DocumentWidget::clicked, MainWindow::Get(), &SlackLogViewer::OpenText);
-				}
-			}
-		}
-
-	}
-	if (!m.GetReactions().empty())
-	{
-		//reactions
-		QHBoxLayout* l = new QHBoxLayout();
-		l->setSpacing(gSpacing);
-		l->setContentsMargins(0, 0, 0, 0);
-		auto& ra = m.GetReactions();
-		for (auto& r : ra)
-		{
-			QString name = ":" + r.GetName() + ":";
-			auto it = emojicpp::EMOJIS.find(name.toLocal8Bit().data());
-			QString utficon;
-			if (it != emojicpp::EMOJIS.end())
-				utficon = (it->second.c_str());
-			else utficon = name;
-			QLabel* icon = new QLabel(utficon + " " + QString::number(r.GetUsers().size()));
-			icon->setStyleSheet(
-				"QLabel {"
-				"border: 0px;"
-				"background-color: rgb(224, 224, 224);"
-				"border-radius: 10px;"
-				"}"
-				"QToolTip {"
-				"background-color: black;"
-				"color: white;"
-				"}"
-			);
-			QFont f;
-			f.setPointSizeF(GetReactionPointSize());
-			icon->setFont(f);
-			QString tooltip;
-			const auto& users = r.GetUsers();
-			auto finduser = [](const QString& id)
-			{
-				auto it = gUsers.find(id);
-				if (it != gUsers.end()) return it.value().GetName();
-				else return id;
-			};
-			tooltip += finduser(users[0]);
-			for (size_t i = 1; i < users.size() - 1; ++i) tooltip += ", " + finduser(users[i]);
-			if (users.size() > 1) tooltip += " and " + finduser(users.back());
-			tooltip += " reacted with " + name;
-			icon->setToolTip(tooltip);
-			l->addWidget(icon);
-		}
-		l->addStretch();
-		text->addLayout(l);
-	}
-	if (has_thread)
-	{
-		//thread
-		ThreadWidget* w = new ThreadWidget(m, threadsize);
-		text->addWidget(w);
-		text->setAlignment(w, Qt::AlignLeft | Qt::AlignBottom);
-		QObject::connect(w, &ThreadWidget::clicked, MainWindow::Get(), &SlackLogViewer::OpenThread);
-	}
-	text->addStretch();
-	w->setLayout(layout);
-	return w;
 }
 
 MessageListView::MessageListView()
@@ -736,29 +659,59 @@ void MessageListView::Clear()
 		}
 	}
 }
+void MessageListView::Close()
+{
+	static_cast<MessageListModel*>(model())->Close();
+	mCurrentIndex = QModelIndex();
+	mSelectedIndex = QModelIndex();
+	mPreviousPage = -1;
+	mConstructed = false;
+	mMessages.clear();
+	mThreads.clear();
+}
+void MessageListView::UpdateCurrentIndex(QPoint pos)
+{
+	QModelIndex index = indexAt(pos);
+	if (index == mCurrentIndex) return;
+	if (mCurrentIndex.isValid() && mCurrentIndex != mSelectedIndex)
+		closePersistentEditor(mCurrentIndex);
+	if (index.isValid() && index != mSelectedIndex)
+		openPersistentEditor(index);
+	mCurrentIndex = index;
+}
+void MessageListView::CloseEditorAtSelectedIndex(QPoint pos)
+{
+	QModelIndex index = indexAt(pos);
+	if (mSelectedIndex.isValid()) closePersistentEditor(mSelectedIndex);
+	if (mSelectedIndex == index) openPersistentEditor(index);
+	mSelectedIndex = QModelIndex();
+}
+bool MessageListView::IsSelectedIndex(QPoint pos)
+{
+	QModelIndex index = indexAt(pos);
+	return mSelectedIndex == index;
+}
+void MessageListView::mousePressEvent(QMouseEvent* event)
+{
+	QListView::mousePressEvent(event);
+	CloseEditorAtSelectedIndex(event->pos());
+}
 void MessageListView::mouseMoveEvent(QMouseEvent* event)
 {
-	QModelIndex index = indexAt(event->pos());
-	if (index == mPreviousIndex || !index.isValid()) return QListView::mouseMoveEvent(event);
-	closePersistentEditor(mPreviousIndex);
-	mPreviousIndex = index;
-	openPersistentEditor(index);
 	QListView::mouseMoveEvent(event);
+	UpdateCurrentIndex(event->pos());
 }
 void MessageListView::wheelEvent(QWheelEvent* event)
 {
 	QListView::wheelEvent(event);
-	QModelIndex index = indexAt(event->pos());
-	if (index == mPreviousIndex || !index.isValid()) return;
-	closePersistentEditor(mPreviousIndex);
-	mPreviousIndex = index;
-	openPersistentEditor(index);
+	UpdateCurrentIndex(event->pos());
 }
 
 void MessageListView::leaveEvent(QEvent* event)
 {
-	closePersistentEditor(mPreviousIndex);
-	mPreviousIndex = QModelIndex();
+	if (mCurrentIndex.isValid() && mCurrentIndex != mSelectedIndex)
+		closePersistentEditor(mCurrentIndex);
+	mCurrentIndex = QModelIndex();
 	QListView::leaveEvent(event);
 }
 int MessageListView::GetCurrentRow()
@@ -799,6 +752,20 @@ void MessageListView::UpdateCurrentPage()
 		emit CurrentPageChanged(page);
 	}
 }
+void MessageListView::UpdateSelection(bool b)
+{
+	if (!b)
+	{
+		//if (mCurrentIndex != mSelectedIndex)
+		//	closePersistentEditor(mSelectedIndex);//これが呼ばれることはどうやらないらしい。振る舞いを把握しきれていないので一応書いておくが。
+		mSelectedIndex = QModelIndex();
+		//printf("deselected\n");
+	}
+	else
+	{
+		mSelectedIndex = mCurrentIndex;
+	}
+}
 
 
 MessageListModel::MessageListModel(QListView* list)
@@ -835,6 +802,13 @@ bool MessageListModel::insertRows(int row, int count, const QModelIndex& parent)
 	endInsertRows();
 	return true;
 }
+bool MessageListModel::removeRows(int row, int count, const QModelIndex& parent)
+{
+	beginRemoveRows(parent, row, row + count - 1);
+	mSize -= count;
+	endRemoveRows();
+	return true;
+}
 bool MessageListModel::canFetchMore(const QModelIndex& parent) const
 {
 	if (parent.isValid()) return false;
@@ -858,7 +832,13 @@ void MessageListModel::Open(const std::vector<std::shared_ptr<Message>>* m)
 	int fetchsize = std::min(gSettings->value("NumOfMessagesPerPage").toInt(), (int)(mMessages->size()));
 	if (fetchsize > 0) insertRows(0, fetchsize);
 }
-void MessageListModel::DownloadImage(const QModelIndex& index, ImageFile& image)
+void MessageListModel::Close()
+{
+	int c = rowCount();
+	if (c > 0) removeRows(0, c);
+	mMessages = nullptr;
+}
+/*void MessageListModel::DownloadImage(const QModelIndex& index, ImageFile& image)
 {
 	FileDownloader* fd = new FileDownloader(image.GetUrl());
 	//スロットが呼ばれるタイミングは遅延しているので、
@@ -883,8 +863,215 @@ void MessageListModel::SetDownloadedImage(FileDownloader* fd, const QModelIndex&
 	fd->deleteLater();
 	emit ImageDownloadFinished(index, index, QVector<int>());
 }
+void MessageListModel::SetDownloadedImage(const QModelIndex& index, ImageFile& image)
+{
+	emit ImageDownloadFinished(index, index, QVector<int>());
+}*/
 
-MessageDelegate::MessageDelegate(QListView* list)
+void MessageBrowser::mousePressEvent(QMouseEvent* event)
+{
+	MessageEditor* e = static_cast<MessageEditor*>(parent());
+	MessageListView* v = static_cast<MessageListView*>(e->GetMessageListView());
+	QPoint pos = v->mapFromGlobal(event->globalPos());
+	//もしクリックされたのが選択されているindexなら、処理は自分で行えばいい。
+	//しかし自分自身でない場合、選択解除ができないのでCloseEditorを呼ぶ。
+	if (!v->IsSelectedIndex(pos)) v->CloseEditorAtSelectedIndex(pos);
+	QTextBrowser::mousePressEvent(event);
+}
+
+MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, QSize datetimesize, QSize textsize, QSize threadsize, int pwidth, bool has_thread)
+	: mListView(view)
+{
+	setStyleSheet("QWidget { background-color: rgb(239, 239, 239); border: 0px; }");
+	setAutoFillBackground(true);
+	setMouseTracking(true);
+	QHBoxLayout* layout = new QHBoxLayout();
+	layout->setContentsMargins(gLeftMargin, gTopMargin, gRightMargin, gBottomMargin);
+	layout->setSpacing(gSpacing);
+
+	{
+		//icon
+		QPixmap icon(m.GetUser().GetIcon().scaled(QSize(36, 36)));
+		QLabel* label = new QLabel();
+		label->setStyleSheet("border: 0px;");
+		label->setPixmap(icon);
+		layout->addWidget(label);
+		layout->setAlignment(label, Qt::AlignTop | Qt::AlignLeft);
+	}
+	QVBoxLayout* text = new QVBoxLayout();
+	text->setContentsMargins(0, 0, 0, 0);
+	text->setSpacing(gSpacing);
+	layout->addLayout(text);
+	QHBoxLayout* nmdt = new QHBoxLayout();
+	nmdt->setContentsMargins(0, 0, 0, 0);
+	nmdt->setSpacing(gSpacing);
+	text->addLayout(nmdt);
+	{
+		//name
+		const QString& n = m.GetUser().GetName();
+		QLabel* name = nullptr;
+		if (n.isEmpty()) name = new QLabel("noname");
+		else name = new QLabel(n);
+		name->setStyleSheet("border: 0px;");
+		name->setFixedSize(namesize);
+		QFont f;
+		f.setPointSizeF(GetNamePointSize());
+		f.setBold(true);
+		name->setFont(f);
+		nmdt->addWidget(name);
+	}
+	{
+		//datetime
+		QLabel* time = new QLabel(m.GetTimeStampStr());
+		time->setStyleSheet("color: rgb(64, 64, 64); border: 0px;");
+		time->setFixedHeight(datetimesize.height());
+		QFont f;
+		f.setPointSizeF(GetDateTimePointSize());
+		time->setFont(f);
+		nmdt->addWidget(time);
+		//nmdt->setAlignment(time, Qt::AlignBottom | Qt::AlignLeft);
+	}
+	nmdt->addStretch();
+	{
+		//message
+		MessageBrowser* tb = new MessageBrowser();
+		//int height = tb->heightForWidth(tb->width());
+		tb->setFixedSize(textsize);
+		tb->setOpenExternalLinks(true);
+		tb->setStyleSheet("QTextBrowser { border: 0px; }"
+						  "QMenu::item:disabled { color: grey; }"
+						  "QMenu::item:selected { background-color: palette(Highlight); }");
+		connect(tb, SIGNAL(copyAvailable(bool)), this, SIGNAL(copyAvailable(bool)));
+		QString html;
+		html += MrkdwnToHtml(m.GetMessage());
+		tb->setHtml(html);
+		//tb->setHtml(m.GetTextDocument()->toHtml());
+		//tb->setDocument(m.GetTextDocument());
+		text->addWidget(tb);
+	}
+	if (m.GetFiles() != nullptr)
+	{
+		//Files
+		const auto* files = m.GetFiles();
+		for (auto& f : files->GetFiles())
+		{
+			if (f->IsImage())
+			{
+				ImageWidget* im = new ImageWidget(static_cast<const ImageFile*>(f.get()), pwidth);
+				text->addWidget(im);
+				text->setAlignment(im, Qt::AlignLeft);
+				QObject::connect(im, &ImageWidget::clicked, MainWindow::Get(), &SlackLogViewer::OpenImage);
+			}
+			else
+			{
+				DocumentWidget* doc = new DocumentWidget(f.get(), pwidth);
+				text->addWidget(doc);
+				text->setAlignment(doc, Qt::AlignLeft);
+				if (f->IsText())
+				{
+					QObject::connect(doc, &DocumentWidget::clicked, MainWindow::Get(), &SlackLogViewer::OpenText);
+				}
+			}
+		}
+
+	}
+	if (!m.GetReactions().empty())
+	{
+		//reactions
+		QHBoxLayout* l = new QHBoxLayout();
+		l->setSpacing(gSpacing);
+		l->setContentsMargins(0, 0, 0, 0);
+		auto& ra = m.GetReactions();
+		for (auto& r : ra)
+		{
+			QString name = ":" + r.GetName() + ":";
+			auto it = emojicpp::EMOJIS.find(name.toLocal8Bit().data());
+			QString utficon;
+			if (it != emojicpp::EMOJIS.end())
+				utficon = (it->second.c_str());
+			else utficon = name;
+			QLabel* icon = new QLabel(utficon + " " + QString::number(r.GetUsers().size()));
+			icon->setStyleSheet(
+				"QLabel {"
+				"border: 0px;"
+				"background-color: rgb(224, 224, 224);"
+				"border-radius: 10px;"
+				"}"
+				"QToolTip {"
+				"background-color: black;"
+				"color: white;"
+				"}"
+			);
+			QFont f;
+			f.setPointSizeF(GetReactionPointSize());
+			icon->setFont(f);
+			QString tooltip;
+			const auto& users = r.GetUsers();
+			auto finduser = [](const QString& id)
+			{
+				auto it = gUsers.find(id);
+				if (it != gUsers.end()) return it.value().GetName();
+				else return id;
+			};
+			tooltip += finduser(users[0]);
+			for (size_t i = 1; i < users.size() - 1; ++i) tooltip += ", " + finduser(users[i]);
+			if (users.size() > 1) tooltip += " and " + finduser(users.back());
+			tooltip += " reacted with " + name;
+			icon->setToolTip(tooltip);
+			l->addWidget(icon);
+		}
+		l->addStretch();
+		text->addLayout(l);
+	}
+	if (has_thread)
+	{
+		//thread
+		ThreadWidget* w = new ThreadWidget(m, threadsize);
+		text->addWidget(w);
+		text->setAlignment(w, Qt::AlignLeft | Qt::AlignBottom);
+		QObject::connect(w, &ThreadWidget::clicked, MainWindow::Get(), &SlackLogViewer::OpenThread);
+	}
+	text->addStretch();
+	setLayout(layout);
+}
+void MessageEditor::enterEvent(QEvent* evt)
+{
+	setStyleSheet("QWidget { background-color: rgb(239, 239, 239); }");
+}
+void MessageEditor::leaveEvent(QEvent* evt)
+{
+	setStyleSheet("QWidget { background-color: white; }");
+}
+void MessageEditor::mousePressEvent(QMouseEvent* event)
+{
+	QPoint pos = mListView->mapFromGlobal(event->globalPos());
+	//もしクリックされたのが選択されているindexなら、処理は自分で行えばいい。
+	//しかし自分自身でない場合、選択解除ができないのでCloseEditorを呼ぶ。
+	if (!mListView->IsSelectedIndex(pos)) mListView->CloseEditorAtSelectedIndex(pos);
+	//QWidgetのmousePressEventを読んでしまうと、多分イベントが消費されてMessageBrowserのクリック処理が呼ばれないんじゃないか。
+	//右クリックの反応がなくなってしまう。
+	//QWidget::mousePressEvent(event);
+}
+void MessageEditor::mouseMoveEvent(QMouseEvent* event)
+{
+	//テキスト選択状態で生成済みのeditorに侵入したとき、
+	//困ったことにMessageListViewのmouseMoveEventが呼ばれず、mCurrentIndexが更新されない。
+	//なのでこちらから更新する。
+	QPoint pos = mListView->mapFromGlobal(event->globalPos());
+	//もしクリックされたのが選択されているindexなら、処理は自分で行えばいい。
+	//しかし自分自身でない場合、選択解除ができないのでCloseEditorを呼ぶ。
+	mListView->UpdateCurrentIndex(pos);
+	QWidget::mousePressEvent(event);
+}
+void MessageEditor::paintEvent(QPaintEvent* event)
+{
+	QStyleOption opt;
+	opt.init(this);
+	QPainter p(this);
+	style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
+}
+
+MessageDelegate::MessageDelegate(MessageListView* list)
 	: mListView(list)
 {
 }
@@ -931,10 +1118,10 @@ void MessageDelegate::paint(QPainter* painter, const QStyleOptionViewItem& optio
 QWidget* MessageDelegate::createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
-
-	auto* w = CreateMessageWidget(*m,
-								  GetNameSize(option, index), GetDateTimeSize(option, index),
-								  GetTextSize(option, index), GetThreadSize(option, index), parent->width(), m->GetThread() != nullptr);
+	auto* w = new MessageEditor(mListView, *m,
+								GetNameSize(option, index), GetDateTimeSize(option, index),
+								GetTextSize(option, index), GetThreadSize(option, index), parent->width(), m->GetThread() != nullptr);
+	connect(w, &MessageEditor::copyAvailable, mListView, &MessageListView::UpdateSelection);
 	w->setParent(parent);
 	return w;
 }
@@ -1070,43 +1257,35 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 		if (f->IsImage())
 		{
 			ImageFile* i = static_cast<ImageFile*>(f.get());
-			if (!i->GetImage().isNull())
+			auto draw = [](QPainter* painter, QRect crect, int y, const QImage& image)
 			{
-				//既にファイルが読み込まれているので、そのまま描画する。
-				QPixmap tmp = QPixmap::fromImage(i->GetImage().scaledToHeight(gMaxThumbnailHeight).copy());
+				QPixmap tmp = QPixmap::fromImage(image);
 				painter->setPen(QPen(QBrush(QColor(160, 160, 160)), 2));
 				int width = std::min(crect.width() - gSpacing - gIconSize, tmp.width());
 				if (width < tmp.width()) tmp = tmp.copy(0, 0, width, tmp.height());
 				painter->drawPixmap(crect.left() + gIconSize + gSpacing + 2, y + 2, width, tmp.height(), tmp);
 				painter->drawRect(crect.left() + gIconSize + gSpacing + 1, y + 1, width + 2, tmp.height() + 2);
+			};
+			bool exists = i->LoadImage();
+			if (exists)
+			{
+				//ファイルがキャッシュ内に見つかったor既に読み込まれているので、その画像を取得しサムネイルを描画する。
+				QPixmap tmp = QPixmap::fromImage(i->GetImage().scaledToHeight(gMaxThumbnailHeight));
+				draw(painter, crect, y, i->GetImage().scaledToHeight(gMaxThumbnailHeight));
 			}
 			else
 			{
-				QFile icon("Cache\\" + gWorkspace + "\\Images\\" + f->GetID());
-				if (icon.exists())
-				{
-					//ファイルがキャッシュ内に見つかったので、その画像を取得しサムネイルを描画する。
-					icon.open(QIODevice::ReadOnly);
-					static_cast<ImageFile*>(i)->SetImage(icon.readAll());
-					QPixmap tmp = QPixmap::fromImage(i->GetImage().scaledToHeight(gMaxThumbnailHeight));
-					painter->setPen(QPen(QBrush(QColor(160, 160, 160)), 2));
-					int width = std::min(crect.width() - gSpacing - gIconSize, tmp.width());
-					if (width < tmp.width()) tmp = tmp.copy(0, 0, width, tmp.height());
-					painter->drawPixmap(crect.left() + gIconSize + gSpacing + 2, y + 2, width, tmp.height(), tmp);
-					painter->drawRect(crect.left() + gIconSize + gSpacing + 1, y + 1, width + 2, tmp.height() + 2);
-				}
-				else
-				{
-					//ファイルが見つからないので、ダウンロード要求を出し一時的にダウンロード待ち画像を描画する。
-					static_cast<MessageListModel*>(mListView->model())->DownloadImage(index, *i);
-					QPixmap tmp = QPixmap::fromImage(gTempImage->scaledToHeight(gMaxThumbnailHeight));
-					painter->setPen(QPen(QBrush(QColor(160, 160, 160)), 2));
-					int width = std::min(crect.width() - gSpacing - gIconSize, tmp.width());
-					if (width < tmp.width()) tmp = tmp.copy(0, 0, width, tmp.height());
-					painter->drawPixmap(crect.left() + gIconSize + gSpacing + 2, y + 2, width, tmp.height(), tmp);
-					painter->drawRect(crect.left() + gIconSize + gSpacing + 1, y + 1, width + 2, tmp.height() + 2);
-				}
+				//ファイルが見つからないので、一時的にダウンロード待ち画像を描画する。
+				FileDownloader* fd = new FileDownloader();
+				auto* model = static_cast<MessageListModel*>(mListView->model());
+				connect(fd, &FileDownloader::Finished, [model, index]()
+						{
+							emit model->ImageDownloadFinished(index, index, QVector<int>());
+						});
+				i->RequestDownload(fd);
+				draw(painter, crect, y, gTempImage->scaledToHeight(gMaxThumbnailHeight));
 			}
+
 			y += gMaxThumbnailHeight + gSpacing + 4;
 		}
 		else

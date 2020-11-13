@@ -3,23 +3,17 @@
 
 #include "MessageListView.h"
 
-class ReplyListView : public QListView
+class ReplyListView : public MessageListView
 {
 	Q_OBJECT
 public:
 
-	ReplyListView();
-
-	void mouseMoveEvent(QMouseEvent* event);
-	void leaveEvent(QEvent* event);
+	void Close();
 
 public slots:
 
 	bool ScrollToRow(int row);
 
-private:
-
-	QModelIndex mPreviousIndex;
 };
 
 class ReplyListModel : public MessageListModel
@@ -31,8 +25,8 @@ public:
 	virtual QVariant data(const QModelIndex& index, int role) const override;
 	virtual int rowCount(const QModelIndex& parent = QModelIndex()) const override;
 	virtual QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const override;
-	virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
-	virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
+	//virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
+	//virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
 	virtual bool canFetchMore(const QModelIndex& parent) const override;
 	virtual void fetchMore(const QModelIndex& parent) override;
 

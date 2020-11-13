@@ -133,6 +133,12 @@ void Construct(QSettings& s)
 	if (!s.contains("History/NumOfRecentLogFilePaths")) s.setValue("History/NumOfRecentLogFilePaths", 8);
 	if (!s.contains("History/LastLogFilePath")) s.setValue("History/LastLogFilePath", QStringList());
 	if (!s.contains("History/NumOfChannelStorage")) s.setValue("History/NumOfChannelStorage", 5);
+	if (!s.contains("Search/Match")) s.setValue("Search/Match", 0);
+	if (!s.contains("Search/Case")) s.setValue("Search/Case", false);
+	if (!s.contains("Search/Regex")) s.setValue("Search/Regex", false);
+	if (!s.contains("Search/Range")) s.setValue("Search/Range", 0);
+	if (!s.contains("Search/Filter")) s.setValue("Search/Filter", QVariantList{ true, false, false, false });
+
 }
 
 std::unique_ptr<User> gEmptyUser = nullptr;

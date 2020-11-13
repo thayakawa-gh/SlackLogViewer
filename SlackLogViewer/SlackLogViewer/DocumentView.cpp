@@ -158,4 +158,8 @@ void TextView::OpenText(const AttachedFile* t)
 		file.open(QFile::ReadOnly | QFile::Text);
 		mTextEdit->setPlainText(QString::fromUtf8(file.readAll()));
 	}
+	else
+	{
+		mTextEdit->setPlainText("Downloading.");
+	}
 }

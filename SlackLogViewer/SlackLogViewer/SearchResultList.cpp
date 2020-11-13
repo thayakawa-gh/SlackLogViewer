@@ -15,123 +15,74 @@
 #include <QtConcurrent>
 #include <execution>
 
-std::vector<std::shared_ptr<Message>> SearchExactPhrase(int ch, MessageListView* mes, const QString& phrase, SearchMode::Case case_)
+std::vector<std::shared_ptr<Message>> SearchExactPhrase(int ch, MessageListView* mes, QString phrase, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
 	if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
-	QTextDocument::FindFlags f = case_ == SearchMode::SENSITIVE ? QTextDocument::FindCaseSensitively : 0;
+	bool case_sensitive = mode.GetCaseMode() == SearchMode::SENSITIVE ? true : false;
+	bool body = mode.Body();
+	bool user = mode.User();
+	bool fname = mode.FileName();
+	bool fcont = mode.FileContents();
 	for (const auto& m : mes->GetMessages())
 	{
-		bool b = m->HasTextDocument();
-		const QTextDocument* d = m->GetTextDocument();
-		QTextCursor c = d->find(phrase, f);
-		if (!c.isNull()) res.emplace_back(m);
-		if (!b) m->ClearTextDocument();//異なるスレッドでQObjectを共有することはできないので、この関数内で新たに作った場合は削除必須。
+		bool found = m->Contains(phrase, case_sensitive, body, user, fname, fcont);
+		if (found) res.emplace_back(m);
 		if (m->IsParentMessage())
 		{
 			for (const auto& r : m->GetThread()->GetReplies())
 			{
-				bool b = r->HasTextDocument();
-				const QTextDocument* d = r->GetTextDocument();
-				QTextCursor c = d->find(phrase, f);
-				if (!c.isNull()) res.emplace_back(r);
-				if (!b) r->ClearTextDocument();
+				bool found2 = r->Contains(phrase, case_sensitive, body, user, fname, fcont);
+				if (found2) res.emplace_back(r);
 			}
 		}
 	}
 	return res;
 }
-std::vector<std::shared_ptr<Message>> SearchWords(int ch, MessageListView* mes, const QStringList& keys, SearchMode::Match match, SearchMode::Case case_)
+std::vector<std::shared_ptr<Message>> SearchWords(int ch, MessageListView* mes, QStringList keys, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
 	if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
-	QTextDocument::FindFlags f = case_ == SearchMode::SENSITIVE ? QTextDocument::FindCaseSensitively : 0;
+	bool case_sensitive = mode.GetCaseMode() == SearchMode::SENSITIVE ? true : false;
+	bool all = (mode.GetMatchMode() == SearchMode::ALLWORDS ? true : false);
+	bool body = mode.Body();
+	bool user = mode.User();
+	bool fname = mode.FileName();
+	bool fcont = mode.FileContents();
 	for (const auto& m : mes->GetMessages())
 	{
-		bool b = m->HasTextDocument();
-		const QTextDocument* d = m->GetTextDocument();
-		bool found = (match == SearchMode::ALLWORDS ? true : false);
-		for (const auto& k : keys)
-		{
-			QTextCursor c = d->find(k, 0, f);
-			if (match == SearchMode::ALLWORDS)
-			{
-				//一つでも含まれなかった場合は見つからなかった扱い。
-				if (c.isNull())
-				{
-					found = false;
-					break;
-				}
-			}
-			else
-			{
-				//一つでも含まれればOK。
-				if (!c.isNull())
-				{
-					found = true;
-					break;
-				}
-			}
-		}
+		bool found = m->Contains(keys, case_sensitive, all, body, user, fname, fcont);
 		if (found) 
 			res.emplace_back(m);
-		if (!b) m->ClearTextDocument();//異なるスレッドでQObjectを共有することはできないので、この関数内で新たに作った場合は削除必須。
 		if (m->IsParentMessage())
 		{
 			for (const auto& r : m->GetThread()->GetReplies())
 			{
-				bool b = r->HasTextDocument();
-				const QTextDocument* d = r->GetTextDocument();
-				bool found = (match == SearchMode::ALLWORDS ? true : false);
-				for (const auto& k : keys)
-				{
-					QTextCursor c = d->find(k, 0, f);
-					if (match == SearchMode::ALLWORDS)
-					{
-						//一つでも含まれなかった場合は見つからなかった扱い。
-						if (c.isNull())
-						{
-							found = false;
-							break;
-						}
-					}
-					else
-					{
-						//一つでも含まれればOK。
-						if (!c.isNull())
-						{
-							found = true;
-							break;
-						}
-					}
-				}
-				if (found) res.emplace_back(r);
-				if (!b) r->ClearTextDocument();//異なるスレッドでQObjectを共有することはできないので、この関数内で新たに作った場合は削除必須。
+				bool found2 = r->Contains(keys, case_sensitive, all, body, user, fname, fcont);
+				if (found2) res.emplace_back(r);
 			}
 		}
 	}
 	return res;
 }
-std::vector<std::shared_ptr<Message>> SearchWithRegex(int ch, MessageListView* mes, const QRegularExpression& regex)
+std::vector<std::shared_ptr<Message>> SearchWithRegex(int ch, MessageListView* mes, QRegularExpression regex, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
 	if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
+	bool body = mode.Body();
+	bool user = mode.User();
+	bool fname = mode.FileName();
+	bool fcont = mode.FileContents();
 	for (const auto& m : mes->GetMessages())
 	{
-		bool b = m->HasTextDocument();
-		const QTextDocument* d = m->GetTextDocument();
-		QTextCursor c = d->find(regex);
-		if (!c.isNull()) res.emplace_back(m);
-		if (!b) m->ClearTextDocument();//異なるスレッドでQObjectを共有することはできないので、この関数内で新たに作った場合は削除必須。
+		bool found = m->Contains(regex, body, user, fname, fcont);
+		if (found) res.emplace_back(m);
 		if (m->IsParentMessage())
 		{
 			for (const auto& r : m->GetThread()->GetReplies())
 			{
-				bool b = r->HasTextDocument();
-				const QTextDocument* d = r->GetTextDocument();
-				QTextCursor c = d->find(regex);
-				if (!c.isNull()) res.emplace_back(r);
-				if (!b) r->ClearTextDocument();
+				bool found2 = r->Contains(regex, body, user, fname, fcont);
+				if (found2) res.emplace_back(r);
 			}
 		}
 	}
@@ -211,7 +162,7 @@ size_t SearchResultListView::Search(int ch, const QStackedWidget* stack, const Q
 		for (auto i : chs)
 		{
 			MessageListView* mes = static_cast<MessageListView*>(stack->widget(i));
-			fs.append(QtConcurrent::run(SearchWithRegex, i, mes, regex));
+			fs.append(QtConcurrent::run(SearchWithRegex, i, mes, regex, mode));
 		}
 	}
 	else if (mode.GetMatchMode() == SearchMode::EXACTPHRASE)
@@ -219,16 +170,16 @@ size_t SearchResultListView::Search(int ch, const QStackedWidget* stack, const Q
 		for (auto i : chs)
 		{
 			MessageListView* mes = static_cast<MessageListView*>(stack->widget(i));
-			fs.append(QtConcurrent::run(SearchExactPhrase, i, mes, key, mode.GetCaseMode()));
+			fs.append(QtConcurrent::run(SearchExactPhrase, i, mes, key, mode));
 		}
 	}
 	else
 	{
+		QStringList keys = key.split(QRegularExpression("\\s"));
 		for (auto i : chs)
 		{
-			QStringList keys = key.split(QRegularExpression("\\s"));
 			MessageListView* mes = static_cast<MessageListView*>(stack->widget(i));
-			fs.append(QtConcurrent::run(SearchWords, i, mes, keys, mode.GetMatchMode(), mode.GetCaseMode()));
+			fs.append(QtConcurrent::run(SearchWords, i, mes, keys, mode));
 		}
 	}
 	for (auto& f : fs)
@@ -245,6 +196,14 @@ size_t SearchResultListView::Search(int ch, const QStackedWidget* stack, const Q
 				  });
 	mView->SetMessages(std::move(res));
 	return mView->GetMessages().size();
+}
+void SearchResultListView::Close()
+{
+	mView->Close();
+	mChannel = -1;
+	mKey = "";
+	mMode = SearchMode();
+	mLabel->setText("");
 }
 
 SearchResultModel::SearchResultModel(QListView* list)
@@ -264,7 +223,15 @@ void SearchResultModel::Open(const std::vector<std::shared_ptr<Message>>* m)
 	MessageListModel::Open(m);
 }
 
-FoundMessageWidget::FoundMessageWidget(const Message* m, QWidget* mw)
+void FoundMessageEditorInside::enterEvent(QEvent* evt)
+{
+	QWidget::enterEvent(evt);
+}
+void FoundMessageEditorInside::leaveEvent(QEvent* evt)
+{
+	QWidget::leaveEvent(evt);
+}
+FoundMessageEditor::FoundMessageEditor(const Message* m, QWidget* mw)
 {
 	setStyleSheet("background-color: rgb(239, 239, 239); border: 0px;");
 	QVBoxLayout* layout = new QVBoxLayout();
@@ -295,9 +262,19 @@ FoundMessageWidget::FoundMessageWidget(const Message* m, QWidget* mw)
 	setLayout(layout);
 	setCursor(Qt::PointingHandCursor);
 }
-void FoundMessageWidget::mousePressEvent(QMouseEvent* event)
+void FoundMessageEditor::mousePressEvent(QMouseEvent* event)
 {
-	emit clicked();
+	if (event->button() == Qt::LeftButton) emit clicked();
+}
+void FoundMessageEditor::enterEvent(QEvent* evt)
+{
+	setStyleSheet("background-color: rgb(239, 239, 239);");
+	layout()->itemAt(1)->widget()->setStyleSheet("background-color: rgb(239, 239, 239);");
+}
+void FoundMessageEditor::leaveEvent(QEvent* evt)
+{
+	setStyleSheet("background-color: white;");
+	layout()->itemAt(1)->widget()->setStyleSheet("background-color: white;");
 }
 
 QSize SearchResultDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const
@@ -346,14 +323,15 @@ void SearchResultDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
 QWidget* SearchResultDelegate::createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
-	
-	QWidget* message = CreateMessageWidget(*m,
-										   GetNameSize(option, index), GetDateTimeSize(option, index),
-										   GetTextSize(option, index), GetThreadSize(option, index), parent->width(), m->GetThread() != nullptr);
-	message->layout()->setContentsMargins(0, 0, 0, 0);
 
-	FoundMessageWidget* w = new FoundMessageWidget(m, message);
-	connect(w, &FoundMessageWidget::clicked, [m]()
+	auto* message = new FoundMessageEditorInside(mListView, *m,
+												 GetNameSize(option, index), GetDateTimeSize(option, index),
+												 GetTextSize(option, index), GetThreadSize(option, index), parent->width(), m->GetThread() != nullptr);
+	message->layout()->setContentsMargins(0, 0, 0, 0);
+	connect(message, &FoundMessageEditorInside::copyAvailable, mListView, &MessageListView::UpdateSelection);
+
+	FoundMessageEditor* w = new FoundMessageEditor(m, message);
+	connect(w, &FoundMessageEditor::clicked, [m]()
 			{
 				auto* mw = MainWindow::Get();
 				int row = m->GetRow();
