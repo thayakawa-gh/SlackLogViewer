@@ -17,4 +17,4 @@ This is currently only available for Windows 64bit.
 1. Click "Open" from the menu button in the top left corner of the window, and select the folder of exported json files.
 
 ### Acknowledgements
-This application depends on Qt 5.15.1 for GUI and emojicpp developed by Shalitha Suranga to convert icons into unicode.
+This application depends on Qt 5.14.2 for GUI and emojicpp developed by Shalitha Suranga to convert icons into unicode.
