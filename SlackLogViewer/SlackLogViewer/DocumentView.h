@@ -18,6 +18,7 @@ class DocumentView : public QFrame
 public:
 
 	DocumentView();
+	virtual ~DocumentView() = default;
 
 signals:
 
@@ -56,7 +57,6 @@ public slots:
 	void OpenImage(const ImageFile* i);
 
 	void FitToWindow();
-	void Normalize();
 	void ZoomIn(QWheelEvent* event);
 	void ZoomOut(QWheelEvent* event);
 	void Scale(QWheelEvent* event, int levelfrom, int levelto);
@@ -94,6 +94,21 @@ public slots:
 
 private:
 	QTextEdit* mTextEdit;
+};
+
+class QWebEngineView;
+
+class PDFView : public DocumentView
+{
+	Q_OBJECT
+public:
+
+	PDFView();
+	virtual ~PDFView();
+
+	void OpenPDF(const AttachedFile* t);
+
+	QWebEngineView* mView;
 };
 
 #endif

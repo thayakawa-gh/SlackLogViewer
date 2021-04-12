@@ -49,14 +49,23 @@ class User
 {
 public:
 
-	User(const QString& id, const QString& name, const QString& image);
+	//User(const QString& id, const QString& name, const QString& realname, const QString& image);
+	User(const QJsonObject& o);
 	User();//空のユーザーを作成する。削除済みユーザーなどはこれの扱い。
 
 	const QString& GetID() const { return mID; }
 	const QString& GetName() const { return mName; }
+	const QString& GetRealName() const { return mRealName; }
+	const QString& GetTimeZone() const { return mTimeZone; }
+	const QString& GetTitle() const { return mTitle; }
+	const QString& GetPhone() const { return mPhone; }
+	const QString& GetEmail() const { return mEmail; }
+	const QString& GetSkype() const { return mSkype; }
 	const QString& GetIconUrl() const { return mIconUrl; }
 	const QPixmap& GetIcon() const { return mIcon; }
-
+	bool IsDeleted() const { return mDeleted; }
+	bool IsAdmin() const { return mAdmin; }
+	bool IsOwner() const { return mOwner; }
 	void SetUserIcon(const QByteArray& data)
 	{
 		mIcon.loadFromData(data);
@@ -66,8 +75,19 @@ private:
 
 	QString mID;
 	QString mName;
+	QString mRealName;
+	QString mTimeZone;
+	QString mTimeZoneLabel;
+	QString mTitle;
+	QString mPhone;
+	QString mEmail;
+	QString mSkype;
 	QString mIconUrl;
 	QPixmap mIcon;
+
+	bool mDeleted;
+	bool mAdmin;
+	bool mOwner;
 };
 
 class Channel

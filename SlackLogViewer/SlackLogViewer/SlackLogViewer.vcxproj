@@ -55,6 +55,9 @@
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>WINVER=0x0602;_WIN32_WINNT=0x0602;$(Qt_DEFINES_);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -65,16 +68,19 @@
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>WINVER=0x0602;_WIN32_WINNT=0x0602;NDEBUG;$(Qt_DEFINES_);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+    </Link>
   </ItemDefinitionGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="QtSettings">
-    <QtInstall>5.15.1</QtInstall>
-    <QtModules>concurrent;core;gui;network;widgets</QtModules>
+    <QtModules>concurrent;core;gui;network;webengine;webenginewidgets;widgets</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
+    <QtInstall>5.14.2</QtInstall>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
-    <QtInstall>5.15.1</QtInstall>
-    <QtModules>concurrent;core;gui;network;widgets</QtModules>
+    <QtModules>concurrent;core;gui;network;webengine;webenginewidgets;widgets</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
+    <QtInstall>5.14.2</QtInstall>
   </PropertyGroup>
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.props')">
     <Import Project="$(QtMsBuild)\qt.props" />
@@ -88,7 +94,6 @@
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -101,7 +106,6 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -109,11 +113,13 @@
     <QtRcc Include="SlackLogViewer.qrc" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CacheStatus.cpp" />
     <ClCompile Include="DocumentView.cpp" />
     <ClCompile Include="FileDownloader.cpp" />
     <ClCompile Include="GlobalVariables.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MenuBar.cpp" />
+    <ClCompile Include="Message.cpp" />
     <ClCompile Include="MessageListView.cpp" />
     <ClCompile Include="ReplyListView.cpp" />
     <ClCompile Include="SearchResultList.cpp">
@@ -123,14 +129,18 @@
       <QtMocFileName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Filename).moc</QtMocFileName>
     </ClCompile>
     <ClCompile Include="SlackLogViewer.cpp" />
+    <ClCompile Include="UserListView.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="FileDownloader.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="UserListView.h" />
+    <QtMoc Include="CacheStatus.h" />
     <ClInclude Include="emoji.h" />
     <QtMoc Include="DocumentView.h" />
     <ClInclude Include="GlobalVariables.h" />
+    <ClInclude Include="Message.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Singleton.h" />
     <QtMoc Include="SlackLogViewer.h" />

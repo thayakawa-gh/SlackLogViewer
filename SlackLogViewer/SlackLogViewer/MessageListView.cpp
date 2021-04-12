@@ -2,351 +2,20 @@
 #include "FileDownloader.h"
 #include "GlobalVariables.h"
 #include "SlackLogViewer.h"
-#include "emoji.h"
-#include <QApplication>
-#include <QObject>
-#include <QHBoxLayout>
-#include <QVBoxLayout>
-#include <QGraphicsAnchorLayout>
-#include <QLabel>
-#include <QPixmap>
-#include <QTextBrowser>
+#include <QTextDocument>
 #include <QAbstractTextDocumentLayout>
 #include <QPainter>
-#include <QDateTime>
-#include <QDir>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QScrollBar>
 #include <QMouseEvent>
 #include <QPushButton>
-#include <iostream>
-#include <QtConcurrent>
 #include <QFileDialog>
 #include <QErrorMessage>
-
-void MrkdwnToHtml_impl(QString& str)
-{
-	//絵文字
-	{
-		static const QRegularExpression matchemoji(":[a-zA-Z0-9’._\\+\\-&ãçéíôÅ]+?:");
-		auto match = matchemoji.match(str);
-		while (match.hasMatch())
-		{
-			int start = match.capturedStart();
-			int end = match.capturedEnd();
-			QString emoji = str.mid(start, end - start);
-			auto res = emojicpp::EMOJIS.find(emoji.toStdString());
-			if (res == emojicpp::EMOJIS.end())
-			{
-				match = matchemoji.match(str, end);
-				continue;
-			}
-			str.replace(match.captured(), res->second.c_str());
-			match = matchemoji.match(str, start + 1);
-		}
-	}
-	//username
-	{
-		static const QRegularExpression matchuser("<@[a-zA-Z0-9]+>");
-		auto match = matchuser.match(str);
-		while (match.hasMatch())
-		{
-			int start = match.capturedStart();
-			int end = match.capturedEnd();
-			QString user = str.mid(start + 2, end - 3 - start);
-			QString user_bk = match.captured(0);
-			auto it = gUsers.find(user);
-			if (it == gUsers.end())
-			{
-				match = matchuser.match(str, end);
-			}
-			else
-			{
-				const QString& name = it.value().GetName();
-				QString to = "<span style=\"color: #195BB2; background-color: #E8F5FA;\">@" + name + "</span>";
-				str.replace(user_bk, to);
-				match = matchuser.match(str, start + to.size());
-			}
-		}
-	}
-	//channel
-	{
-		static const QRegularExpression matchch("<#[a-zA-Z0-9]+\\|[^>]+>");
-		auto match = matchch.match(str);
-		while (match.hasMatch())
-		{
-			int start = match.capturedStart();
-			int end = match.capturedEnd();
-			QString chan_bk = str.mid(start + 2, end - 3 - start).split("|")[0];
-			auto it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&chan_bk](const Channel& ch) { return ch.GetID() == chan_bk; });
-			if (it == gChannelVector.end())
-			{
-				match = matchch.match(str, end);
-			}
-			else
-			{
-				const QString& name = it->GetName();
-				QString to = "<font color=\"#195BB2\">#" + name + "</font>";
-				str.replace(match.captured(0), to);
-				match = matchch.match(str, start + to.size());
-			}
-		}
-	}
-	//url
-	{
-		static const QRegularExpression matchurl("<http(s?):([^\\s]+)>");
-		auto match = matchurl.match(str);
-		while (match.hasMatch())
-		{
-			int start = match.capturedStart();
-			int end = match.capturedEnd();
-			QString url = str.mid(start + 1, end - 2 - start);
-			QString escaped_url = url.toHtmlEscaped();
-			str.replace(match.captured(), "<a href= \"" + escaped_url + "\">" + url + "</a>");
-			match = matchurl.match(str);
-		}
-	}
-
-	//bold
-	static const QRegularExpression bold("(^|[\\s]+)\\*([^\\n]*?)\\*($|[\\s]+)");
-	str.replace(bold, "\\1<b>\\2</b>\\3");
-
-	//italic
-	static const QRegularExpression italic("(^|[\\s]+)_([^\\n]*?)_($|[\\s]+)");
-	str.replace(italic, "\\1<i>\\2</i>\\3");
-
-	//strike
-	static const QRegularExpression strike("(^|[\\s]+)~([^\\n]*?)~($|[\\s]+)");
-	str.replace(strike, "\\1<s>\\2</s>\\3");
-
-	//箇条書き
-	//どうも上手くいかないのでやめる。
-	//str.replace(QRegularExpression("(^|\\n)\\*[ ]+([^\\n]*)"), "\\1<ul><li>\\2</li></ul>");
-	//str.replace(QRegularExpression("(^|\\n)[0-9]\\. ([^\\n]*)"), "\\1<ol><li>\\2</li></ol>");
-	//str.replace(QRegularExpression("</ul>\\s*?<ul>"), "");
-	//str.replace(QRegularExpression("</ol>\\s*?<ol>"), "");
-
-	str.replace("\n", "<br>");
-}
-
-QString MrkdwnToHtml(const QString& str)
-{
-	auto s = str.split("```");
-	//splitした結果は、必ず
-	//0番目...通常
-	//1番目...コードブロック
-	//2番目...通常
-	//︙
-	//2n番目...通常
-	//2n+1番目...コードブロック
-	//となる。
-	//コードブロックは単純に表示すべきなので、2n番目だけ置換処理する。
-
-	for (size_t i = 0; i < s.size(); i += 2)
-	{
-		MrkdwnToHtml_impl(s[i]);
-	}
-	for (size_t i = 1; i < s.size(); i += 2)
-	{
-		s[i] = "<style> pre { width: 100%; border: 1px solid #000; white-space: pre-wrap; } </style>\n<pre><code><div style=\"background-color:#EDF7FF;\">" + s[i] + "</div></code></pre>";
-	}
-
-	return "<font size=\"" + QString::number((int)(GetBasePointSize() * 0.5)) +
-		"\"pt>" + s.join("") + "</font>";
-}
-
-AttachedFile::AttachedFile(Type type, const QJsonObject& o)
-{
-	mType = type;
-	mFileSize = o.find("size").value().toInt();
-	mPrettyType = o.find("pretty_type").value().toString();
-	mUrl = o.find("url_private_download").value().toString();
-	mID = o.find("id").value().toString();
-	mFileName = o.find("name").value().toString();
-	mUserID = o.find("user").value().toString();
-	QDateTime dt;
-	dt.setTime_t(o.find("timestamp").value().toInt());
-	mTimeStampStr = dt.toString("yyyy/MM/dd hh:mm:ss");
-}
-ImageFile::ImageFile(const QJsonObject& o)
-	: AttachedFile(IMAGE, o)
-{}
-void ImageFile::RequestDownload(FileDownloader* fd)
-{
-	if (HasImage())
-	{
-		emit fd->Finished();
-		fd->deleteLater();
-		return;
-	}
-	QFile i(mID);
-	if (i.exists())
-	{
-		SetImage(i.readAll());
-		emit fd->Finished();
-		fd->deleteLater();
-		return;
-	}
-	//スロットが呼ばれるタイミングは遅延しているので、
-	//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
-	fd->SetUrl(mUrl);
-	QObject::connect(fd, &FileDownloader::Downloaded, [this, fd]()
-					 {
-						 QByteArray f = fd->GetDownloadedData();
-						 QFile o("Cache\\" + gWorkspace + "\\Images\\" + GetID());
-						 o.open(QIODevice::WriteOnly);
-						 o.write(f);
-						 SetImage(f);
-						 emit fd->Finished();
-						 fd->deleteLater();
-					 });
-	QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]
-					 {
-						 fd->deleteLater();
-					 });
-}
-bool ImageFile::LoadImage()
-{
-	if (HasImage()) return true;
-	QFile f(GetID());
-	if (f.exists())
-	{
-		SetImage(f.readAll());
-		return true;
-	}
-	return false;
-}
-
-TextFile::TextFile(const QJsonObject & o)
-	: AttachedFile(TEXT, o)
-{}
-void TextFile::RequestDownload(FileDownloader * fd)
-{
-	if (HasText())
-	{
-		emit fd->Finished();
-		fd->deleteLater();
-		return;
-	}
-	//スロットが呼ばれるタイミングは遅延しているので、
-	//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
-	fd->SetUrl(mUrl);
-	QObject::connect(fd, &FileDownloader::Downloaded, [this, fd]()
-					 {
-						 QByteArray f = fd->GetDownloadedData();
-						 QFile o("Cache\\" + gWorkspace + "\\Images\\" + GetID());
-						 o.open(QIODevice::WriteOnly);
-						 o.write(f);
-						 SetText(f);
-						 emit fd->Finished();
-						 fd->deleteLater();
-					 });
-	QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]
-					 {
-						 fd->deleteLater();
-					 });
-}
-
-OtherFile::OtherFile(const QJsonObject & o)
-	: AttachedFile(OTHER, o)
-{}
-
-AttachedFiles::AttachedFiles(const QJsonArray& array)
-{
-	mFiles.reserve(array.size());
-	for (const auto& a : array)
-	{
-		const QJsonObject& f = a.toObject();
-		const QString& type = f.find("mimetype").value().toString();
-		if (type.contains("text")) mFiles.emplace_back(std::make_unique<TextFile>(f));
-		else if (type.contains("image")) mFiles.emplace_back(std::make_unique<ImageFile>(f));
-		else  mFiles.emplace_back(std::make_unique<OtherFile>(f));
-	}
-}
-
-Message::Message(int ch, int row, const QJsonObject& o)
-	: mChannel(ch), mRow(row), mThread(nullptr)
-{
-	mMessage = o.find("text").value().toString();
-	mTimeStamp.setTime_t(o.find("ts").value().toString().toDouble());
-	mTimeStampStr = mTimeStamp.toString("yyyy/MM/dd hh:mm:ss");
-
-	auto sub = o.find("subtype");
-
-	if (sub.value() == "bot_message")
-	{
-		auto it = o.find("bot_id");
-		mUserID = it.value().toString();
-	}
-	else if (sub.value() == "file_comment")
-	{
-		auto it = o.find("comment");
-		mUserID = it.value().toObject().find("user").value().toString();
-	}
-	else
-		//if (sub == o.end() ||
-		//sub.value() == "channel_join" ||
-		//sub.value() == "channel_purpose" ||
-		//sub.value() == "pinned_item" ||
-		//sub.value() == "channel_name")
-	{
-		auto it = o.find("user");
-		if (it == o.end()) throw std::exception();
-		if (it.value().toString().isEmpty()) throw std::exception();
-		mUserID = it.value().toString();
-	}
-
-	auto file = o.find("files");
-	if (file != o.end())
-	{
-		mFiles = std::make_unique<AttachedFiles>(file.value().toArray());
-	}
-
-	auto reactions = o.find("reactions");
-	if (reactions != o.end())
-	{
-		auto& ar = reactions.value().toArray();
-		mReactions.reserve(ar.size());
-		for (auto& a : ar)
-		{
-			const QJsonObject& o = a.toObject();
-			QJsonArray& uar = o["users"].toArray();
-			QStringList users;
-			users.reserve(uar.size());
-			for (auto& u : uar)
-				users.append(u.toString());
-			mReactions.emplace_back(o.find("name").value().toString(), std::move(users));
-		}
-	}
-}
-Message::Message(int ch, int row, const QJsonObject& o, Thread& thread)
-	: Message(ch, row, o)
-{
-	mThread = &thread;
-}
-void Message::CreateTextDocument() const
-{
-	mTextDocument = std::make_unique<QTextDocument>();
-	mTextDocument->setHtml(GetHtmlMessage());
-}
-bool Message::IsReply() const
-{
-	if (mThread == nullptr) return false;
-	if (mThread->GetParent() == this) return false;
-	return true;
-}
-bool Message::IsParentMessage() const
-{
-	if (mThread == nullptr) return false;
-	if (mThread->GetParent() != this) return false;
-	return true;
-}
-
-Thread::Thread(std::vector<QString>&& users)
-	: mParent(nullptr), mReplyUsers(std::move(users))
-{}
+#include <QGridLayout>
+#include <QPainterPath>
+#include "emoji.h"
 
 ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
 	: mImage(image)
@@ -355,20 +24,19 @@ ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
 	bool isnull = image->GetImage().isNull();
 	if (isnull)
 	{
-		QPixmap p = QPixmap::fromImage(gTempImage->scaledToHeight(gMaxThumbnailHeight));
+		QPixmap p = QPixmap::fromImage(gTempImage->scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
 		size = p.size();
 		setPixmap(p);
 	}
 	else
 	{
-		QImage p = image->GetImage().scaledToHeight(gMaxThumbnailHeight);
+		QImage p = image->GetImage().scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation);
 		size = p.size();
 		setPixmap(QPixmap::fromImage(p));
 	}
 	setStyleSheet("border: 2px solid rgb(160, 160, 160);");
 	int imagewidth = std::min(pwidth - gSpacing * 5 - gIconSize, size.width());
 	setFixedSize(imagewidth + 4, size.height() + 4);
-	setCursor(Qt::PointingHandCursor);
 	if (!isnull)
 	{
 		//画像がダウンロード済みならダウンロードボタンを表示する。
@@ -405,10 +73,6 @@ ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
 				});
 	}
 }
-void ImageWidget::mousePressEvent(QMouseEvent* event)
-{
-	emit clicked(mImage);
-}
 
 DocumentWidget::DocumentWidget(const AttachedFile* file, int pwidth)
 	: mFile(file)
@@ -417,7 +81,7 @@ DocumentWidget::DocumentWidget(const AttachedFile* file, int pwidth)
 	layout->setContentsMargins(gSpacing, gSpacing, gSpacing, gSpacing);
 	QLabel* icon = new QLabel();
 	icon->setStyleSheet("border: 0px; ");
-	icon->setPixmap(QPixmap::fromImage(gDocIcon->scaledToHeight(gIconSize)));
+	icon->setPixmap(QPixmap::fromImage(gDocIcon->scaledToHeight(gIconSize, Qt::SmoothTransformation)));
 	icon->setFixedSize(gIconSize, gIconSize);
 	layout->addWidget(icon, 0, 0, 2, 1);
 
@@ -470,21 +134,36 @@ DocumentWidget::DocumentWidget(const AttachedFile* file, int pwidth)
 															"download",
 															gSettings->value("History/LastLogFilePath").toString() + "\\" + i->GetFileName());
 				if (path.isEmpty()) return;
-				FileDownloader* fd = new FileDownloader(i->GetUrl());
-				QObject::connect(fd, &FileDownloader::Downloaded, [fd, path]()
-								 {
-									 QByteArray f = fd->GetDownloadedData();
-									 QFile o(path);
-									 o.open(QIODevice::WriteOnly);
-									 o.write(f);
-									 fd->deleteLater();
-								 });
-				QObject::connect(fd, &FileDownloader::DownloadFailed, [fd]()
-								 {
-									 QErrorMessage* m = new QErrorMessage(MainWindow::Get());
-									 m->showMessage("Download failed.");
-									 fd->deleteLater();
-								 });
+
+				QString orgpath = "Cache\\" + gWorkspace;
+				if (i->IsText()) orgpath += "\\Text\\" + i->GetID();
+				else if (i->IsImage()) orgpath += "\\Image\\" + i->GetID();
+				else if (i->IsPDF()) orgpath += "\\PDF\\" + i->GetID();
+				else if (i->IsOther()) orgpath += "\\Others\\" + i->GetID();
+				else throw std::exception();
+				QFile f(orgpath);
+				if (f.exists())
+				{
+					f.copy(path);
+				}
+				else
+				{
+					FileDownloader* fd = new FileDownloader(i->GetUrl());
+					QObject::connect(fd, &FileDownloader::Downloaded, [fd, path]()
+									 {
+										 QByteArray f = fd->GetDownloadedData();
+										 QFile o(path);
+										 o.open(QIODevice::WriteOnly);
+										 o.write(f);
+										 fd->deleteLater();
+									 });
+					QObject::connect(fd, &FileDownloader::DownloadFailed, [fd]()
+									 {
+										 QErrorMessage* m = new QErrorMessage(MainWindow::Get());
+										 m->showMessage("Download failed.");
+										 fd->deleteLater();
+									 });
+				}
 			});
 }
 void DocumentWidget::mousePressEvent(QMouseEvent* event)
@@ -506,8 +185,9 @@ ThreadWidget::ThreadWidget(Message& m, QSize threadsize)
 		QLabel* icon = new QLabel();
 		icon->setStyleSheet("border: 0px;");
 		auto it = gUsers.find(u);
-		if (it == gUsers.end()) icon->setPixmap(gEmptyUser->GetIcon().scaled(gThreadIconSize, gThreadIconSize));
-		else icon->setPixmap(it.value().GetIcon().scaled(gThreadIconSize, gThreadIconSize));
+		if (it == gUsers.end())
+			icon->setPixmap(gEmptyUser->GetIcon().scaled(gThreadIconSize, gThreadIconSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+		else icon->setPixmap(it.value().GetIcon().scaled(gThreadIconSize, gThreadIconSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		l->addWidget(icon);
 	}
 	QLabel* rep = new QLabel();
@@ -624,11 +304,10 @@ void MessageListView::Clear()
 	{
 		m->ClearTextDocument();
 		{
-			AttachedFiles* afs = m->GetFiles();
-			if (afs)
+			auto& afs = m->GetFiles();
+			if (!afs.empty())
 			{
-				auto& fs = afs->GetFiles();
-				for (auto& f : fs)
+				for (auto& f : afs)
 				{
 					if (!f->IsImage()) continue;
 					ImageFile* i = static_cast<ImageFile*>(f.get());
@@ -643,11 +322,10 @@ void MessageListView::Clear()
 		{
 			t->ClearTextDocument();
 			{
-				AttachedFiles* afs = t->GetFiles();
-				if (afs)
+				auto& afs = t->GetFiles();
+				if (!afs.empty())
 				{
-					auto& fs = afs->GetFiles();
-					for (auto& f : fs)
+					for (auto& f : afs)
 					{
 						if (!f->IsImage()) continue;
 						ImageFile* i = static_cast<ImageFile*>(f.get());
@@ -838,35 +516,6 @@ void MessageListModel::Close()
 	if (c > 0) removeRows(0, c);
 	mMessages = nullptr;
 }
-/*void MessageListModel::DownloadImage(const QModelIndex& index, ImageFile& image)
-{
-	FileDownloader* fd = new FileDownloader(image.GetUrl());
-	//スロットが呼ばれるタイミングは遅延しているので、
-	//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
-	QObject::connect(fd, &FileDownloader::Downloaded, [this, fd, index, &image]()
-	{
-		//SetDownloadedImage(fd, index, *i);
-		 QtConcurrent::run([this, fd, index, &image]() { SetDownloadedImage(fd, index, image); });
-	});
-	QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]
-					 {
-						 fd->deleteLater();
-					 });
-}
-void MessageListModel::SetDownloadedImage(FileDownloader* fd, const QModelIndex& index, ImageFile& image)
-{
-	QByteArray f = fd->GetDownloadedData();
-	QFile o("Cache\\" + gWorkspace + "\\Images\\" + image.GetID());
-	o.open(QIODevice::WriteOnly);
-	o.write(f);
-	image.SetImage(f);
-	fd->deleteLater();
-	emit ImageDownloadFinished(index, index, QVector<int>());
-}
-void MessageListModel::SetDownloadedImage(const QModelIndex& index, ImageFile& image)
-{
-	emit ImageDownloadFinished(index, index, QVector<int>());
-}*/
 
 void MessageBrowser::mousePressEvent(QMouseEvent* event)
 {
@@ -891,12 +540,13 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 
 	{
 		//icon
-		QPixmap icon(m.GetUser().GetIcon().scaled(QSize(36, 36)));
-		QLabel* label = new QLabel();
+		QPixmap icon(m.GetUser().GetIcon().scaled(QSize(36, 36), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+		ClickableLabel* label = new ClickableLabel();
 		label->setStyleSheet("border: 0px;");
 		label->setPixmap(icon);
 		layout->addWidget(label);
 		layout->setAlignment(label, Qt::AlignTop | Qt::AlignLeft);
+		connect(label, &ClickableLabel::clicked, [u = &m.GetUser()]() { MainWindow::Get()->OpenUserProfile(u); });
 	}
 	QVBoxLayout* text = new QVBoxLayout();
 	text->setContentsMargins(0, 0, 0, 0);
@@ -912,6 +562,7 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 		QLabel* name = nullptr;
 		if (n.isEmpty()) name = new QLabel("noname");
 		else name = new QLabel(n);
+		name->setTextInteractionFlags(Qt::TextSelectableByMouse);
 		name->setStyleSheet("border: 0px;");
 		name->setFixedSize(namesize);
 		QFont f;
@@ -923,6 +574,7 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 	{
 		//datetime
 		QLabel* time = new QLabel(m.GetTimeStampStr());
+		time->setTextInteractionFlags(Qt::TextSelectableByMouse);
 		time->setStyleSheet("color: rgb(64, 64, 64); border: 0px;");
 		time->setFixedHeight(datetimesize.height());
 		QFont f;
@@ -949,18 +601,18 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 		//tb->setDocument(m.GetTextDocument());
 		text->addWidget(tb);
 	}
-	if (m.GetFiles() != nullptr)
+	if (!m.GetFiles().empty())
 	{
 		//Files
-		const auto* files = m.GetFiles();
-		for (auto& f : files->GetFiles())
+		const auto& files = m.GetFiles();
+		for (auto& f : files)
 		{
 			if (f->IsImage())
 			{
 				ImageWidget* im = new ImageWidget(static_cast<const ImageFile*>(f.get()), pwidth);
 				text->addWidget(im);
 				text->setAlignment(im, Qt::AlignLeft);
-				QObject::connect(im, &ImageWidget::clicked, MainWindow::Get(), &SlackLogViewer::OpenImage);
+				QObject::connect(im, &ImageWidget::clicked, [im]() { MainWindow::Get()->OpenImage(im->GetImage()); });
 			}
 			else
 			{
@@ -970,6 +622,10 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 				if (f->IsText())
 				{
 					QObject::connect(doc, &DocumentWidget::clicked, MainWindow::Get(), &SlackLogViewer::OpenText);
+				}
+				else if (f->IsPDF())
+				{
+					QObject::connect(doc, &DocumentWidget::clicked, MainWindow::Get(), &SlackLogViewer::OpenPDF);
 				}
 			}
 		}
@@ -1135,7 +791,8 @@ int MessageDelegate::PaintMessage(QPainter* painter, QRect crect, int ypos, cons
 	crect.translate(0, ypos);
 
 	// Draw message icon
-	painter->drawPixmap(crect.left(), crect.top(), m->GetUser().GetIcon().scaled(QSize(gIconSize, gIconSize)));
+	painter->drawPixmap(crect.left(), crect.top(),
+						m->GetUser().GetIcon().scaled(QSize(gIconSize, gIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 
 	// Draw name
 	QSize nmsize = GetNameSize(option, index);
@@ -1227,8 +884,10 @@ int MessageDelegate::PaintThread(QPainter* painter, QRect crect, int ypos, const
 	for (auto& u : user)
 	{
 		auto it = gUsers.find(u);
-		if (it == gUsers.end()) painter->drawPixmap(x, y, gEmptyUser->GetIcon().scaled(QSize(gThreadIconSize, gThreadIconSize)));
-		else painter->drawPixmap(x, y, it.value().GetIcon().scaled(QSize(gThreadIconSize, gThreadIconSize)));
+		if (it == gUsers.end())
+			painter->drawPixmap(x, y, gEmptyUser->GetIcon().scaled(QSize(gThreadIconSize, gThreadIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+		else
+			painter->drawPixmap(x, y, it.value().GetIcon().scaled(QSize(gThreadIconSize, gThreadIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		x += gThreadIconSize + gSpacing;
 	}
 	QFont f(option.font);
@@ -1246,13 +905,13 @@ int MessageDelegate::PaintThread(QPainter* painter, QRect crect, int ypos, const
 int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
-	const auto* files = m->GetFiles();
-	if (files == nullptr) return ypos;
+	const auto& files = m->GetFiles();
+	if (files.empty()) return ypos;
 	crect.translate(0, ypos);
 	int y = crect.top();
 	painter->save();
 
-	for (auto& f : files->GetFiles())
+	for (auto& f : files)
 	{
 		if (f->IsImage())
 		{
@@ -1270,8 +929,8 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 			if (exists)
 			{
 				//ファイルがキャッシュ内に見つかったor既に読み込まれているので、その画像を取得しサムネイルを描画する。
-				QPixmap tmp = QPixmap::fromImage(i->GetImage().scaledToHeight(gMaxThumbnailHeight));
-				draw(painter, crect, y, i->GetImage().scaledToHeight(gMaxThumbnailHeight));
+				//QPixmap tmp = QPixmap::fromImage(i->GetImage().scaledToHeight(gMaxThumbnailHeight));
+				draw(painter, crect, y, i->GetImage().scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
 			}
 			else
 			{
@@ -1283,29 +942,30 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 							emit model->ImageDownloadFinished(index, index, QVector<int>());
 						});
 				i->RequestDownload(fd);
-				draw(painter, crect, y, gTempImage->scaledToHeight(gMaxThumbnailHeight));
+				draw(painter, crect, y, gTempImage->scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
 			}
 
 			y += gMaxThumbnailHeight + gSpacing + 4;
 		}
 		else
 		{
-			if (f->IsText())
+			if (f->IsText() || f->IsPDF())
 			{
 				//一応キャッシュフォルダにダウンロードしておく。
-				TextFile* t = static_cast<TextFile*>(f.get());
-				QFile file("Cache\\" + gWorkspace + "\\Texts\\" + f->GetID());
+				QString dir = f->IsText() ? "\\Text\\" : "\\PDF\\";
+				QString fpath = "Cache\\" + gWorkspace + dir + f->GetID();
+				QFile file(fpath);
 				if (!file.exists())
 				{
-					FileDownloader* fd = new FileDownloader(t->GetUrl());
+					FileDownloader* fd = new FileDownloader(f->GetUrl());
 					//スロットが呼ばれるタイミングは遅延しているので、
 					//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
-					QObject::connect(fd, &FileDownloader::Downloaded, [this, fd, index, t]()
+					QObject::connect(fd, &FileDownloader::Downloaded, [this, fd, fpath, index, &f]()
 					{
-						QByteArray f = fd->GetDownloadedData();
-						QFile o("Cache\\" + gWorkspace + "\\Texts\\" + t->GetID());
+						QByteArray ba = fd->GetDownloadedData();
+						QFile o(fpath);
 						o.open(QIODevice::WriteOnly);
-						o.write(f);
+						o.write(ba);
 						fd->deleteLater();
 					});
 					QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]()
@@ -1317,7 +977,7 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 			//画像、テキスト以外は適当に。
 			painter->setPen(QPen(QBrush(QColor(160, 160, 160)), 2));
 			painter->drawPixmap(crect.left() + gIconSize + gSpacing + gSpacing + 2, y + gSpacing + 2,
-								QPixmap::fromImage(gDocIcon->scaledToHeight(gIconSize)));
+								QPixmap::fromImage(gDocIcon->scaledToHeight(gIconSize, Qt::SmoothTransformation)));
 			painter->drawRect(crect.left() + gIconSize + gSpacing + 1, y + 1, gMaxThumbnailWidth + 2, gIconSize + gSpacing * 2 + 2);
 			QRect rect(crect.left() + gIconSize + gSpacing * 2 + gIconSize + gSpacing, y + gSpacing + 1, gMaxThumbnailWidth, gIconSize + gSpacing * 2);
 			QString fsize;
@@ -1409,11 +1069,11 @@ QSize MessageDelegate::GetThreadSize(const QStyleOptionViewItem&, const QModelIn
 QSize MessageDelegate::GetDocumentSize(const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
-	const AttachedFiles* files = m->GetFiles();
+	const auto& files = m->GetFiles();
 	int height = 0;
 	int width = gMaxThumbnailWidth;
-	if (files == nullptr) return QSize(0, 0);
-	for (auto& f : files->GetFiles())
+	if (files.empty()) return QSize(0, 0);
+	for (auto& f : files)
 	{
 		if (f->IsImage()) height += gMaxThumbnailHeight + 4 + gSpacing;
 		//テキストなどその他ドキュメントはサムネイルを生成しないことにする。手間だから。

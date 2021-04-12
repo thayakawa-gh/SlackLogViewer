@@ -1,6 +1,8 @@
 #include "GlobalVariables.h"
 #include <QSettings>
 #include <QFile>
+#include <QJsonObject>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <sstream>
 
@@ -104,9 +106,39 @@ QJsonDocument LoadJsonFile(const QString& path)
 	return QJsonDocument::fromJson(data);
 }
 
-User::User(const QString& id, const QString& name, const QString& image)
+/*User::User(const QString& id, const QString& name, const QString& image)
 	: mID(id), mName(name), mIconUrl(image)
 {
+}*/
+QString GetString(const QJsonObject& o, const char* key)
+{
+	auto it = o.find(key);
+	if (it == o.end()) return QString();
+	return it.value().toString();
+}
+bool GetBool(const QJsonObject& o, const char* key)
+{
+	auto it = o.find(key);
+	if (it == o.end()) return false;
+	return it.value().toBool();
+}
+User::User(const QJsonObject& o)
+{
+	mID = GetString(o, "id");
+	mName = GetString(o, "name");
+	mRealName = GetString(o, "real_name");
+	mTimeZone = GetString(o, "tz");
+	mTimeZoneLabel = GetString(o, "tz_label");
+	auto prof = o.find("profile").value().toObject();
+	mTitle = GetString(prof, "title");
+	mPhone = GetString(prof, "phone");
+	mEmail = GetString(prof, "email");
+	mSkype = GetString(prof, "skype");
+	mIconUrl = GetString(prof, "image_192");
+
+	mDeleted = GetBool(o, "deleted");
+	mOwner = GetBool(o, "is_owner");
+	mAdmin = GetBool(o, "is_admin");
 }
 User::User()
 {}
@@ -126,7 +158,7 @@ void Channel::SetChannelInfo(const QString& id, const QString& name)
 void Construct(QSettings& s)
 {
 	if (!s.contains("Font/Size")) s.setValue("Font/Size", 9);
-	if (!s.contains("Font/Family")) s.setValue("Font/Family", "メイリオ");
+	if (!s.contains("Font/Family")) s.setValue("Font/Family", "Meiryo");
 	if (!s.contains("ScrollStep")) s.setValue("ScrollStep", 24);
 	if (!s.contains("NumOfMessagesPerPage")) s.setValue("NumOfMessagesPerPage", 100);
 	if (!s.contains("History/LogFilePaths")) s.setValue("History/LogFilePaths", QStringList());

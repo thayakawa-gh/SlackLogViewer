@@ -5,6 +5,7 @@
 #include <QTextEdit>
 #include <QPushButton>
 #include <QHBoxLayout>
+#include <QtWebEngineWidgets>
 #include "DocumentView.h"
 #include "MessageListView.h"
 #include "FileDownloader.h"
@@ -50,12 +51,12 @@ void DocumentView::Open(const AttachedFile* f)
 	auto it = gUsers.find(f->GetUserID());
 	if (it != gUsers.end())
 	{
-		mUserIcon->setPixmap(it.value().GetIcon().scaled(gIconSize, gIconSize));
+		mUserIcon->setPixmap(it.value().GetIcon().scaled(QSize(gIconSize, gIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		mTimeStampStr->setText(it.value().GetName() + " " + f->GetTimeStampStr());
 	}
 	else
 	{
-		mUserIcon->setPixmap(QPixmap("Resources\\batsu.png").scaled(gIconSize, gIconSize));
+		mUserIcon->setPixmap(QPixmap("Resources\\batsu.png").scaled(QSize(gIconSize, gIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		mTimeStampStr->setText("_______ " + f->GetTimeStampStr());
 	}
 }
@@ -90,19 +91,13 @@ void ImageView::OpenImage(const ImageFile* i)
 	mScaleLevel = mDefaultLevel;
 	mFitted = false;
 	mImage = i;
-	QSize size = i->GetImage().size();
 	mImageLabel->setPixmap(QPixmap::fromImage(i->GetImage()));
-	Normalize();
+	mScrollArea->setWidgetResizable(false);
+	mImageLabel->resize(mScales[mDefaultLevel] * mImageLabel->pixmap()->size());
 }
 void ImageView::FitToWindow()
 {
 	mScrollArea->setWidgetResizable(true);
-}
-void ImageView::Normalize()
-{
-	mScrollArea->setWidgetResizable(false);
-	QSize size = mScrollArea->maximumViewportSize();
-	mImageLabel->resize(mScales[mDefaultLevel] * mImageLabel->pixmap()->size());
 }
 void ImageView::ZoomIn(QWheelEvent* event)
 {
@@ -151,7 +146,7 @@ TextView::TextView()
 
 void TextView::OpenText(const AttachedFile* t)
 {
-	QFile file("Cache\\" + gWorkspace + "\\Texts\\" + t->GetID());
+	QFile file("Cache\\" + gWorkspace + "\\Text\\" + t->GetID());
 	if (file.exists())
 	{
 		this->Open(t);
@@ -161,5 +156,34 @@ void TextView::OpenText(const AttachedFile* t)
 	else
 	{
 		mTextEdit->setPlainText("Downloading.");
+	}
+}
+
+
+PDFView::PDFView()
+{
+	QVBoxLayout* layout = static_cast<QVBoxLayout*>(this->layout());
+
+	mView = new QWebEngineView(this);
+	mView->settings()->setAttribute(QWebEngineSettings::PluginsEnabled, true);
+	mView->settings()->setAttribute(QWebEngineSettings::PdfViewerEnabled, true);
+
+	layout->addWidget(mView);
+}
+PDFView::~PDFView()
+{
+	mView->deleteLater();
+}
+
+void PDFView::OpenPDF(const AttachedFile* t)
+{
+	QString path = ".\\Cache\\" + gWorkspace + "\\PDF\\" + t->GetID();
+	QFileInfo file(path);
+	if (file.exists())
+	{
+		this->Open(t);
+		//何故か相対パスだとファイルを開けない。絶対パスに変換する。
+		QUrl url = QUrl::fromLocalFile(file.absoluteFilePath());
+		mView->load(url);
 	}
 }

@@ -22,12 +22,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifndef EMOJICPP_H
+#define EMOJICPP_H
+
 #include <map>
 #include <string>
 
-namespace emojicpp {
+namespace emojicpp
+{
 
-static std::map<std::string, std::string> EMOJIS = {
+inline static std::map<std::string, std::string> EMOJIS = {
     {":admission_tickets:" , u8"\U0001F39F"},
     {":aerial_tramway:" , u8"\U0001F6A1"},
     {":airplane:" , u8"\U00002708"},
@@ -1334,7 +1338,8 @@ static std::map<std::string, std::string> EMOJIS = {
     {":zipper_mouth_face:" , u8"\U0001F910"}
 };
 
-std::string emojize(std::string s) {
+inline std::string emojize(std::string s)
+{
     int index = -1;
     int sLen = s.size();
     for (int i = 0; i < sLen; i++) {
@@ -1367,3 +1372,5 @@ std::string emojize(std::string s) {
     return s;
 }
 }
+
+#endif

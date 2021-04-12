@@ -4,6 +4,7 @@
 #include "MessageListView.h"
 #include "ReplyListView.h"
 #include "MenuBar.h"
+#include "UserListView.h"
 #include <QHBoxLayout>
 #include <QListView>
 #include <QFile>
@@ -23,6 +24,8 @@
 #include <QApplication>
 #include <QPushButton>
 #include <QSplitter>
+#include <QtConcurrent>
+#include <QMessageBox>
 
 SlackLogViewer::SlackLogViewer(QWidget* parent)
 	: QMainWindow(parent), mImageView(nullptr), mTextView(nullptr), mSearchView(nullptr)
@@ -36,10 +39,15 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 	mainlayout->setSpacing(0);
 	{
 		QMenu* menu = new QMenu();
+		menu->setStyleSheet("QToolButton::menu-indicator { image: none; }"
+							"QMenu { color: black; background-color: white; border: 1px solid grey; border-radius: 0px; }"
+							"QMenu::item:selected { background-color: palette(Highlight); }");
 		QAction* open = new QAction("Open");
 		connect(open, &QAction::triggered, this, static_cast<void(SlackLogViewer::*)()>(&SlackLogViewer::OpenLogFile));
 		menu->addAction(open);
 		QMenu* recent = new QMenu("Open Recent");
+		recent->setStyleSheet("QMenu { color: black; background-color: white; border: 1px solid grey; border-radius: 0px; }"
+							  "QMenu::item:selected { background-color: palette(Highlight); }");
 		{
 			const auto& list = gSettings->value("History/LogFilePaths").toStringList();
 			int s = gSettings->value("History/NumOfRecentLogFilePaths").toInt();
@@ -65,12 +73,15 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 		connect(about, &QAction::triggered, this, &SlackLogViewer::OpenCredit);
 		menu->addAction(about);
 		QAction* close = new QAction("Exit");
-		connect(close, &QAction::triggered, this, &SlackLogViewer::Exit);
+		//connect(close, &QAction::triggered, this, &SlackLogViewer::Exit);
+		connect(close, &QAction::triggered, qApp, &QCoreApplication::quit, Qt::QueuedConnection);
 		menu->addAction(close);
 
 		MenuBar* sb = new MenuBar(menu);
 		sb->setFixedHeight(36);
 		connect(sb, &MenuBar::SearchRequested, this, &SlackLogViewer::Search);
+		connect(sb, &MenuBar::CacheAllRequested, this, &SlackLogViewer::CacheAllFiles);
+		connect(sb, &MenuBar::ClearCacheRequested, this, &SlackLogViewer::ClearCache);
 
 		mainlayout->addWidget(sb);
 	}
@@ -162,6 +173,11 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 			mStack->addWidget(mTextView);
 		}
 		{
+			mPDFView = new PDFView();
+			connect(mPDFView, &PDFView::Closed, this, &SlackLogViewer::CloseDocument);
+			mStack->addWidget(mPDFView);
+		}
+		{
 			mSearchView = new SearchResultListView();
 			mSearchView->GetView()->setModel(new SearchResultModel(mSearchView->GetView()));
 			mSearchView->GetView()->setItemDelegate(new SearchResultDelegate(mSearchView->GetView()));
@@ -179,8 +195,8 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 		tlayout->setContentsMargins(0, 0, 0, 0);
 		tlayout->setSpacing(0);
 		//header
-		QLabel* header = new QLabel("  Thread");
-		header->setStyleSheet(
+		mRightStackLabel = new QLabel("  Thread");
+		mRightStackLabel->setStyleSheet(
 			"background-color: white;"
 			"border-bottom: 1px solid rgb(128, 128, 128);"
 			"border-top: 1px solid rgb(128, 128, 128);"
@@ -188,14 +204,17 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 			"font-weight: bold;"
 			"font-size: 16px;"
 			"color: black;");
-		header->setFixedHeight(gHeaderHeight);
-		tlayout->addWidget(header);
+		mRightStackLabel->setFixedHeight(gHeaderHeight);
+		tlayout->addWidget(mRightStackLabel);
 
-		mThread = new ReplyListView();
-		mThread->setStyleSheet(
+		mRightStack = new QStackedWidget();
+		mRightStack->setStyleSheet(
 			"background-color: white;"
 			"border: 0px;"
 			"border-left: 1px solid rgb(128, 128, 128);");
+
+		//Thread View
+		mThread = new ReplyListView();
 		//mThread->setMaximumWidth(500);
 		mThread->setModel(new ReplyListModel(mThread));
 		mThread->setItemDelegate(new ReplyDelegate(mThread));
@@ -205,7 +224,15 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 					if (index == 2)
 						mThread->reset();
 				});
-		tlayout->addWidget(mThread);
+		mThread->setStyleSheet("border: 0px;");
+		mRightStack->addWidget(mThread);
+
+		//user Profile
+		mProfile = new UserProfileWidget();
+		mProfile->setStyleSheet("border: 0px;");
+		mRightStack->addWidget(mProfile);
+
+		tlayout->addWidget(mRightStack);
 		w->setLayout(tlayout);
 		mSplitter->addWidget(w);
 	}
@@ -237,11 +264,10 @@ void SlackLogViewer::LoadUsers()
 	for (const auto& u : arr)
 	{
 		const QJsonObject& o = u.toObject();
-		const QString& id = o["id"].toString();
-		User user(id, o["name"].toString(), o["profile"].toObject()["image_72"].toString());
-		auto it = gUsers.insert(id, std::move(user));
+		User user(o);
+		auto it = gUsers.insert(user.GetID(), std::move(user));
 
-		QFile icon("Cache\\" + gWorkspace + "\\Icons\\" + id);
+		QFile icon("Cache\\" + gWorkspace + "\\Icon\\" + user.GetID());
 		if (icon.exists())
 		{
 			icon.open(QIODevice::ReadOnly);
@@ -255,7 +281,7 @@ void SlackLogViewer::LoadUsers()
 			QObject::connect(fd, &FileDownloader::Downloaded, [fd, puser = &it.value()]()
 			{
 				QByteArray image = fd->GetDownloadedData();
-				QFile o("Cache\\" + gWorkspace + "\\Icons\\" + puser->GetID());
+				QFile o("Cache\\" + gWorkspace + "\\Icon\\" + puser->GetID());
 				o.open(QIODevice::WriteOnly);
 				o.write(image);
 				puser->SetUserIcon(fd->GetDownloadedData());
@@ -383,21 +409,35 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 			m->showMessage("cannot make cache folder.");
 			return;
 		}
-		if (!dir.exists("Cache\\" + gWorkspace + "\\Texts") && !dir.mkdir("Cache\\" + gWorkspace + "\\Texts"))
+		if (!dir.exists("Cache\\" + gWorkspace + "\\Text") && !dir.mkdir("Cache\\" + gWorkspace + "\\Text"))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
 			m->showMessage("cannot make cache folder.");
 			return;
 		}
-		if (!dir.exists("Cache\\" + gWorkspace + "\\Images") && !dir.mkdir("Cache\\" + gWorkspace + "\\Images"))
+		if (!dir.exists("Cache\\" + gWorkspace + "\\Image") && !dir.mkdir("Cache\\" + gWorkspace + "\\Image"))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
 			m->showMessage("cannot make cache folder.");
 			return;
 		}
-		if (!dir.exists("Cache\\" + gWorkspace + "\\Icons") && !dir.mkdir("Cache\\" + gWorkspace + "\\Icons"))
+		if (!dir.exists("Cache\\" + gWorkspace + "\\PDF") && !dir.mkdir("Cache\\" + gWorkspace + "\\PDF"))
+		{
+			QErrorMessage* m = new QErrorMessage(this);
+			m->setAttribute(Qt::WA_DeleteOnClose);
+			m->showMessage("cannot make cache folder.");
+			return;
+		}
+		if (!dir.exists("Cache\\" + gWorkspace + "\\Others") && !dir.mkdir("Cache\\" + gWorkspace + "\\Others"))
+		{
+			QErrorMessage* m = new QErrorMessage(this);
+			m->setAttribute(Qt::WA_DeleteOnClose);
+			m->showMessage("cannot make cache folder.");
+			return;
+		}
+		if (!dir.exists("Cache\\" + gWorkspace + "\\Icon") && !dir.mkdir("Cache\\" + gWorkspace + "\\Icon"))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
@@ -507,6 +547,8 @@ void SlackLogViewer::JumpToPage(int page)
 void SlackLogViewer::OpenThread(const Message* m)
 {
 	static_cast<ReplyListModel*>(mThread->model())->Open(m, &m->GetThread()->GetReplies());
+	mRightStack->setCurrentWidget(mThread);
+	mRightStackLabel->setText("  Thread");
 }
 void SlackLogViewer::OpenImage(const ImageFile* i)
 {
@@ -517,6 +559,17 @@ void SlackLogViewer::OpenText(const AttachedFile* t)
 {
 	mTextView->OpenText(t);
 	mStack->setCurrentWidget(mTextView);
+}
+void SlackLogViewer::OpenPDF(const AttachedFile* t)
+{
+	mPDFView->OpenPDF(t);
+	mStack->setCurrentWidget(mPDFView);
+}
+void SlackLogViewer::OpenUserProfile(const User* u)
+{
+	mProfile->UpdateUserProfile(*u);
+	mRightStack->setCurrentWidget(mProfile);
+	mRightStackLabel->setText("  Profile");
 }
 void SlackLogViewer::Search(const QString& key, SearchMode mode)
 {
@@ -534,6 +587,49 @@ void SlackLogViewer::Search(const QString& key, SearchMode mode)
 		mSearchView->GetView()->scrollTo(mSearchView->GetView()->model()->index(0, 0));
 	}
 }
+void SlackLogViewer::CacheAllFiles(CacheStatus::Channel ch, CacheStatus::Type type)
+{
+	//検索範囲
+	std::vector<int> chs;
+	if (ch == CacheStatus::ALLCHS)
+	{
+		chs.resize(gChannelVector.size());
+		for (int i = 0; i < gChannelVector.size(); ++i) chs[i] = i;
+	}
+	else if (ch == CacheStatus::CURRENTCH)
+	{
+		chs = { mChannelView->currentIndex().row() };
+	}
+	QList<QFuture<CacheResult>> fs;
+	for (int i : chs)
+	{
+		MessageListView* mes = static_cast<MessageListView*>(mChannelPages->widget(i));
+		fs.append(QtConcurrent::run(::CacheAllFiles, i, mes, type));
+	}
+	size_t num_exist = 0;
+	size_t num_downloaded = 0;
+	size_t num_failure = 0;
+	for (auto& f : fs)
+	{
+		f.waitForFinished();
+		auto r = f.result();
+		num_exist += r.num_exist;
+		num_downloaded += r.num_downloaded;
+		num_failure += r.num_failure;
+	}
+	QMessageBox b(this);
+	b.setWindowTitle("Download result");
+	b.setText(QString::number(num_downloaded) + " files downloaded.\n" +
+			  QString::number(num_exist) + " files already in the cache.\n" +
+			  QString::number(num_failure) + " files failed to download.");
+	b.setDefaultButton(QMessageBox::Ok);
+	b.exec();
+}
+void SlackLogViewer::ClearCache(CacheStatus::Type type)
+{
+	::ClearCache(type);
+}
+
 void SlackLogViewer::CloseDocument()
 {
 	mStack->setCurrentIndex(0);

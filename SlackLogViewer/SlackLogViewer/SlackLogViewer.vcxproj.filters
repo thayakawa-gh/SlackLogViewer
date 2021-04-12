@@ -40,6 +40,11 @@
     <ClCompile Include="MenuBar.cpp" />
     <ClCompile Include="SearchResultList.cpp" />
     <ClCompile Include="MessageListView.cpp" />
+    <ClCompile Include="CacheStatus.cpp" />
+    <ClCompile Include="Message.cpp" />
+    <ClCompile Include="UserListView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="DocumentView.h" />
@@ -49,12 +54,17 @@
     <QtMoc Include="MenuBar.h" />
     <QtMoc Include="SearchResultList.h" />
     <QtMoc Include="SlackLogViewer.h" />
+    <QtMoc Include="CacheStatus.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="emoji.h" />
     <ClInclude Include="GlobalVariables.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Singleton.h" />
+    <ClInclude Include="Message.h" />
+    <ClInclude Include="UserListView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SlackLogViewer.rc">

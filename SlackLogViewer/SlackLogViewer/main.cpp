@@ -5,9 +5,12 @@
 #include <QTextCodec>
 #include <QGuiApplication>
 #include <QScreen>
+#include <Windows.h>
 
 int main(int argc, char *argv[])
 {
+	SetErrorMode(0);
+
 	gSettings = std::make_unique<QSettings>("settings.ini", QSettings::IniFormat);
 	gSettings->setIniCodec(QTextCodec::codecForName("UTF-8"));
 	Construct(*gSettings);
@@ -23,5 +26,10 @@ int main(int argc, char *argv[])
 	MainWindow::Construct();
 	MainWindow::Get()->show();
 
-	return a.exec();
+	a.exec();
+
+	//ここで明示的にDestroyしてSlackLogViewerインスタンスを削除しておかないと、QApplication::quit()でエラーになる。
+	//staticなQApplicationよりも先にMainWindowが消滅していなければならないのだろうか。
+	MainWindow::Destroy();
+	return 0;
 }

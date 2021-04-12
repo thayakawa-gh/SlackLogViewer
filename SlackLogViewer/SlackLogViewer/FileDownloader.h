@@ -20,6 +20,9 @@ public:
 
 	QByteArray GetDownloadedData() const;
 
+	//ダウンロードを待機し、ダウンロードに成功したらtrueを、失敗したらfalseを返す。
+	bool Wait();
+
 signals:
 
 	void Finished();
@@ -35,6 +38,7 @@ private:
 	QNetworkReply::NetworkError mError;
 	QNetworkAccessManager* mManager;
 	QNetworkRequest* mRequest;
+	QNetworkReply* mReply;
 	QByteArray mDownloadedData;
 };
 

@@ -7,12 +7,14 @@
 #include "Singleton.h"
 #include "DocumentView.h"
 #include "SearchResultList.h"
+#include "CacheStatus.h"
 
 class QStackedWidget;
 class QListView;
 class ReplyListView;
 class Message;
 class MessageHeaderWidget;
+class UserProfileWidget;
 class QSplitter;
 
 class SlackLogViewer : public QMainWindow
@@ -44,7 +46,13 @@ public slots:
 	void OpenThread(const Message* m);
 	void OpenImage(const ImageFile* i);
 	void OpenText(const AttachedFile* t);
+	void OpenPDF(const AttachedFile* t);
+	void OpenUserProfile(const User* u);
 	void Search(const QString& key, SearchMode mode);
+
+	//ch == -1のときは全チャンネル対象。
+	void CacheAllFiles(CacheStatus::Channel ch, CacheStatus::Type type);
+	void ClearCache(CacheStatus::Type type);
 
 	void CloseDocument();
 
@@ -61,9 +69,13 @@ private:
 	QStackedWidget* mStack;
 	QStackedWidget* mChannelPages;
 	QSplitter* mSplitter;
+	QStackedWidget* mRightStack;//thread、user profileの表示領域。
+	QLabel* mRightStackLabel;//ThreadまたはProfileの文字を表示する。
 	ReplyListView* mThread;
+	UserProfileWidget* mProfile;
 	ImageView* mImageView;
 	TextView* mTextView;
+	PDFView* mPDFView;
 	SearchResultListView* mSearchView;
 };
 

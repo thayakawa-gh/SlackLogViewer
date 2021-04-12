@@ -4,6 +4,7 @@
 #include <QFrame>
 #include <QLineEdit>
 #include "SearchResultList.h"
+#include "CacheStatus.h"
 
 class QLabel;
 class QTreeWidget;
@@ -12,58 +13,10 @@ class QComboBox;
 class QPushButton;
 class QLineEdit;
 
-/*
-class SearchBoxPopup : public QWidget
-{
-	Q_OBJECT
-public:
-
-	SearchBoxPopup(QLineEdit* parent = nullptr);
-	virtual ~SearchBoxPopup();
-
-	void ShowPopup();
-	void HidePopup();
-
-	SearchMode GetSearchMode() const;
-
-	virtual bool eventFilter(QObject* obj, QEvent* ev) override;
-
-signals:
-	void SearchRequested();
-
-private:
-
-	QComboBox* mMatch;
-	QPushButton* mCase;
-	QPushButton* mRegex;
-	QComboBox* mRange;
-    QLineEdit* mParent;
-};
-
-class SearchBox : public QLineEdit
-{
-	Q_OBJECT
-public:
-
-	SearchBox(QWidget* parent = nullptr);
-
-	virtual bool eventFilter(QObject* obj, QEvent* event) override;
-
-signals:
-
-	void SearchRequested(QString key, SearchMode s);
-
-public slots:
-
-	void ExecuteSearch();
-
-private:
-	SearchBoxPopup* mPopup;
-};
-*/
-
-
 class SearchBox;
+class QCalendarWidget;
+class QDateEdit;
+
 class InnerSearchBox : public QLineEdit
 {
 	Q_OBJECT
@@ -71,6 +24,18 @@ public:
 
 	virtual QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
 };
+/*class CalendarPopup : public QWidget
+{
+public:
+
+	CalendarPopup();
+
+private:
+
+	QDateEdit* mBegin;
+	QDateEdit* mEnd;
+	QCalendarWidget* mCalendar;
+};*/
 class SearchBoxPopup : public QWidget
 {
 	Q_OBJECT
@@ -112,6 +77,7 @@ private:
 
 	QVector<QPushButton*> mTargets;
 };
+
 class SearchBox : public QLineEdit
 {
 	Q_OBJECT
@@ -139,18 +105,20 @@ private:
 	SearchBoxPopup* mPopup;
 };
 
+class CacheStatus;
+
 class MenuBar : public QFrame
 {
 	Q_OBJECT
 public:
-
-	enum Scope { FromCurrentChannel, FromAllChannels, };
 
 	MenuBar(QMenu* menu, QWidget* parent = nullptr);
 
 signals:
 
 	void SearchRequested(QString key, SearchMode s);
+	void CacheAllRequested(CacheStatus::Channel ch, CacheStatus::Type type);
+	void ClearCacheRequested(CacheStatus::Type type);
 
 private slots:
 
@@ -158,8 +126,7 @@ private slots:
 private:
 
 	QLabel* mChannelName;
-	QLineEdit* mSearchBox;
-
+	SearchBox* mSearchBox;
 };
 
 
