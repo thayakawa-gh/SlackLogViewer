@@ -5,12 +5,9 @@
 #include <QTextCodec>
 #include <QGuiApplication>
 #include <QScreen>
-#include <Windows.h>
 
 int main(int argc, char *argv[])
 {
-	SetErrorMode(0);
-
 	gSettings = std::make_unique<QSettings>("settings.ini", QSettings::IniFormat);
 	gSettings->setIniCodec(QTextCodec::codecForName("UTF-8"));
 	Construct(*gSettings);

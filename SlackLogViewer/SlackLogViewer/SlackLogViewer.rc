@@ -71,7 +71,7 @@ BEGIN
             VALUE "FileDescription", "SlackLogViewer"
             VALUE "FileVersion", "1.1.2.2"
             VALUE "InternalName", "SlackLogViewer.exe"
-            VALUE "LegalCopyright", "Copyright (C) 2020 T.Hayakawa"
+            VALUE "LegalCopyright", "Copyright (C) 2020-2021 T.Hayakawa"
             VALUE "OriginalFilename", "SlackLogViewer.exe"
             VALUE "ProductName", "SlackLogViewer"
             VALUE "ProductVersion", "1.1.2.2"

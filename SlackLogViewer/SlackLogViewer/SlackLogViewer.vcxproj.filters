@@ -42,9 +42,7 @@
     <ClCompile Include="MessageListView.cpp" />
     <ClCompile Include="CacheStatus.cpp" />
     <ClCompile Include="Message.cpp" />
-    <ClCompile Include="UserListView.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <ClCompile Include="UserListView.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="DocumentView.h" />
@@ -62,9 +60,7 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="Singleton.h" />
     <ClInclude Include="Message.h" />
-    <ClInclude Include="UserListView.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <ClInclude Include="UserListView.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SlackLogViewer.rc">
