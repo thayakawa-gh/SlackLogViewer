@@ -15,6 +15,9 @@
 #include <QErrorMessage>
 #include <QGridLayout>
 #include <QPainterPath>
+#include <QtConcurrent>
+#include <quazip/quazip.h>
+#include <quazip/quazipfile.h>
 #include "emoji.h"
 
 ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
@@ -74,7 +77,7 @@ ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
 	}
 }
 
-DocumentWidget::DocumentWidget(const AttachedFile* file, int pwidth)
+DocumentWidget::DocumentWidget(const AttachedFile* file, int /*pwidth*/)
 	: mFile(file)
 {
 	QGridLayout* layout = new QGridLayout();
@@ -166,7 +169,7 @@ DocumentWidget::DocumentWidget(const AttachedFile* file, int pwidth)
 				}
 			});
 }
-void DocumentWidget::mousePressEvent(QMouseEvent* event)
+void DocumentWidget::mousePressEvent(QMouseEvent*)
 {
 	emit clicked(mFile);
 }
@@ -211,16 +214,16 @@ ThreadWidget::ThreadWidget(Message& m, QSize threadsize)
 	setCursor(Qt::PointingHandCursor);
 }
 
-void ThreadWidget::mousePressEvent(QMouseEvent* event)
+void ThreadWidget::mousePressEvent(QMouseEvent*)
 {
 	emit clicked(mParentMessage);
 }
-void ThreadWidget::enterEvent(QEvent* evt)
+void ThreadWidget::enterEvent(QEvent*)
 {
 	setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid rgb(128, 128, 128); border-radius: 5px;");
 	mViewMessage->setVisible(true);
 }
-void ThreadWidget::leaveEvent(QEvent* evt)
+void ThreadWidget::leaveEvent(QEvent*)
 {
 	setStyleSheet("border: 1px solid rgb(239, 239, 239);");
 	mViewMessage->setVisible(false);
@@ -239,64 +242,158 @@ MessageListView::MessageListView()
 void MessageListView::Construct(const QString& channel)
 {
 	mConstructed = true;
-	QDir dir = gSettings->value("History/LastLogFilePath").toString() + "\\" + channel;
+	/*QDir dir = gSettings->value("History/LastLogFilePath").toString() + "\\" + channel;
+	QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
+	QStringList files = dir.entryList(ext, QDir::Files, QDir::Name);*/
 	auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
 	int ch_index = ch_it - gChannelVector.begin();
-	QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
-	QStringList files = dir.entryList(ext, QDir::Files, QDir::Name);
-	for (const auto& f : files)
+	QString folder_or_zip = gSettings->value("History/LastLogFilePath").toString();
+	//QVector<std::pair<QDateTime, QString>> files = GetMessageFileList(folder_or_zip, channel);
+	//for (const auto& f : files)
+	//{
+	//	QJsonArray a = LoadJsonFile(folder_or_zip, f.second).array();
+	//}
+	QFileInfo info(folder_or_zip);
+	using MessagesAndReplies = std::pair<std::vector<std::shared_ptr<Message>>, std::vector<std::shared_ptr<Message>>>;
+	std::map<QDateTime, QFuture<MessagesAndReplies>> messages_and_replies;
+	std::mutex thmtx;
+	if (info.isDir())
 	{
-		QJsonDocument o = LoadJsonFile(dir.filePath(f));
-		QJsonArray a = o.array();
-		for (const auto& v : a)
+		//ディレクトリの場合。
+		QDir dir = folder_or_zip + "\\" + channel;
+		//auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
+		//int ch_index = ch_it - gChannelVector.begin();
+		QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
+		QStringList filenames = dir.entryList(ext, QDir::Files, QDir::Name);
+		for (auto& name : filenames)
 		{
-			QJsonObject& o = v.toObject();
+			int end = name.lastIndexOf('.');
+			auto dtstr = name.left(end);
+			QDateTime d = QDateTime::fromString(dtstr, Qt::ISODate);
+			QFile file(folder_or_zip + "\\" + channel  + "\\" + name);
+			if (!file.open(QIODevice::ReadOnly)) exit(-1);
+			QByteArray data = file.readAll();
+			//auto [mrit, b] = messages_and_replies.insert(std::make_pair(std::move(d), MessagesAndReplies{}));
+			messages_and_replies.insert(std::pair(std::move(d),
+												  QtConcurrent::run(&Construct_parallel,
+																	ch_index, std::move(data),
+																	&mThreads, &thmtx)));
+		}
+	}
+	else
+	{
+		if (info.suffix() != "zip") exit(-1);
+		QuaZip zip(folder_or_zip);
+		zip.open(QuaZip::mdUnzip);
+		zip.setFileNameCodec("UTF-8");
+		QuaZipFileInfo64 info;
+		for (bool b = zip.goToFirstFile(); b; b = zip.goToNextFile())
+		{
+			zip.getCurrentFileInfo(&info);
+			if (!info.name.startsWith(channel + "/")) continue;
+			if (info.name.endsWith("/")) continue;
+			int begin = info.name.indexOf('/');
+			int end = info.name.lastIndexOf('.');
+			auto dstr = info.name.mid(begin + 1, end - begin - 1);
+			QDateTime d = QDateTime::fromString(dstr, Qt::ISODate);
+			QuaZipFile file(&zip);
+			file.open(QIODevice::ReadOnly);
+			QByteArray data = file.readAll();
+			messages_and_replies.insert(std::pair(std::move(d),
+												  QtConcurrent::run(&Construct_parallel,
+																	ch_index, std::move(data),
+																	&mThreads, &thmtx)));
+		}
+	}
+
+	//スレッドごとに得た結果を統合する。
+	int row_count = 0;
+	for (auto& [dt, fut] : messages_and_replies)
+	{
+		fut.waitForFinished();
+		auto [meses, reps] = fut.result();
+		//mMessages.insert(mMessages.end(), std::make_move_iterator(meses.begin()), std::make_move_iterator(meses.end()));
+		for (auto& mes : meses)
+		{
+			mes->SetRow(row_count);
+			mMessages.emplace_back(std::move(mes));
+			++row_count;
+		}
+		for (auto& rep : reps)
+		{
+			//リプライはthreadsの方に格納していく必要がある。
+			auto it = mThreads.find(rep->GetThreadTimeStampStr());
+			if (it == mThreads.end())
 			{
-				auto hidden = o.find("hidden");
-				if (hidden != o.end() && hidden.value().toBool() == true) continue;
-				auto hidden_by_limit = o.find("is_hidden_by_limit");
-				if (hidden_by_limit != o.end()) continue;
+				//何故か親メッセージが見つからないリプライがたまにある。
+				//以前は通常のメッセージとして表示していたが、もうめんどいから無視してしまおう。
+				continue;
 			}
-			auto it = o.find("thread_ts");
-			if (it != o.end())
+			it->second->AddReply(std::move(rep));
+		}
+	}
+
+	static_cast<MessageListModel*>(model())->Open(&mMessages);
+	UpdateCurrentPage();
+}
+std::pair<std::vector<std::shared_ptr<Message>>, std::vector<std::shared_ptr<Message>>>
+MessageListView::Construct_parallel(int ch_index, QByteArray data,
+										 std::map<QString, std::shared_ptr<Thread>>* threads, std::mutex* thmtx)
+{
+	std::vector<std::shared_ptr<Message>> messages;
+	std::vector<std::shared_ptr<Message>> replies;
+	QJsonArray a = QJsonDocument::fromJson(data).array();
+	for (const auto& v : a)
+	{
+		QJsonObject o = v.toObject();
+		{
+			auto hidden = o.find("hidden");
+			if (hidden != o.end() && hidden.value().toBool() == true) continue;
+			auto hidden_by_limit = o.find("is_hidden_by_limit");
+			if (hidden_by_limit != o.end()) continue;
+		}
+		auto it = o.find("thread_ts");
+		if (it != o.end())
+		{
+			//スレッドの親メッセージかリプライは、thread_tsを持つ。
+			auto it2 = o.find("replies");
+			QString thread_ts = it.value().toString();
+			if (it2 != o.end())
 			{
-				//スレッドの親メッセージかリプライは、thread_tsを持つ。
-				auto it2 = o.find("replies");
-				if (it2 != o.end())
-				{
-					//"replies"を持つので親メッセージ。
-					const QJsonArray& a = it2.value().toArray();
-					const QString& key = it.value().toString();
-					const QJsonArray& ausers = o.find("reply_users").value().toArray();
-					std::vector<QString> users(ausers.size());
-					for (size_t i = 0; i < ausers.size(); ++i) users[i] = ausers[i].toString();
-					auto res = mThreads.insert(std::make_pair(key, Thread(std::move(users))));
-					mMessages.emplace_back(std::make_shared<Message>(ch_index, (int)mMessages.size(), o, res.first->second));
-					res.first->second.SetParent(mMessages.back().get());
-				}
-				else
-				{
-					//"replies"を持たないのでリプライである。
-					const QString& key = it.value().toString();
-					auto it = mThreads.find(key);
-					if (it == mThreads.end())
-					{
-						//リプライよりも親メッセージが先に見つかっているはずなので、
-						//理屈の上ではここでmThreadsから見つかってこないはずがない。
-						//のだが、たまに親メッセージのリプライ情報が欠損していることがあるようで、その場合は通常のメッセージとして表示する。
-						mMessages.emplace_back(std::make_shared<Message>(ch_index, (int)mMessages.size(), o));
-					}
-					else it->second.AddReply(ch_index, o);
-				}
+				//"replies"を持つので親メッセージ。
+				//const QJsonArray& ra = it2.value().toArray();
+				const QString& key = it.value().toString();
+				const QJsonArray& ausers = o.find("reply_users").value().toArray();
+				std::vector<QString> users(ausers.size());
+				for (int i = 0; i < ausers.size(); ++i) users[i] = ausers[i].toString();
+				std::shared_ptr<Message> mes = std::make_shared<Message>(ch_index, o, std::move(thread_ts));
+				messages.emplace_back(mes);
+				std::lock_guard<std::mutex> lg(*thmtx);
+				auto [thit, b] = threads->insert(std::make_pair(key, std::make_shared<Thread>(mes.get(), std::move(users))));
+				mes->SetThread(thit->second);
 			}
 			else
 			{
-				mMessages.emplace_back(std::make_shared<Message>(ch_index, (int)mMessages.size(), o));
+				//"replies"を持たないのでリプライである。
+				/*const QString& key = it.value().toString();
+				auto thit = mThreads.find(key);
+				if (thit == mThreads.end())
+				{
+					//リプライよりも親メッセージが先に見つかっているはずなので、
+					//理屈の上ではここでmThreadsから見つかってこないはずがない。
+					//のだが、たまに親メッセージのリプライ情報が欠損していることがあるようで、その場合は通常のメッセージとして表示する。
+					messages.emplace_back(std::make_shared<Message>(ch_index, o));
+				}
+				else thit->second.AddReply(ch_index, o);*/
+				replies.emplace_back(std::make_shared<Message>(ch_index, o, std::move(thread_ts)));
 			}
 		}
+		else
+		{
+			messages.emplace_back(std::make_shared<Message>(ch_index, o));
+		}
 	}
-	static_cast<MessageListModel*>(model())->Open(&mMessages);
-	UpdateCurrentPage();
+	return { std::move(messages), std::move(replies) };
 }
 void MessageListView::Clear()
 {
@@ -456,8 +553,6 @@ QVariant MessageListModel::data(const QModelIndex& index, int role) const
 	if (role != Qt::DisplayRole) return QVariant();
 	const Message* ch = static_cast<const Message*>(index.internalPointer());
 	return ch->GetMessage();
-
-	return QVariant();
 }
 int MessageListModel::rowCount(const QModelIndex& parent) const
 {
@@ -501,7 +596,7 @@ void MessageListModel::fetchMore(const QModelIndex& parent)
 }
 int MessageListModel::GetTrueRowCount() const
 {
-	return mMessages->size();
+	return (int)mMessages->size();
 }
 
 void MessageListModel::Open(const std::vector<std::shared_ptr<Message>>* m)
@@ -670,7 +765,7 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 				else return id;
 			};
 			tooltip += finduser(users[0]);
-			for (size_t i = 1; i < users.size() - 1; ++i) tooltip += ", " + finduser(users[i]);
+			for (int i = 1; i < users.size() - 1; ++i) tooltip += ", " + finduser(users[i]);
 			if (users.size() > 1) tooltip += " and " + finduser(users.back());
 			tooltip += " reacted with " + name;
 			icon->setToolTip(tooltip);
@@ -690,17 +785,17 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 	text->addStretch();
 	setLayout(layout);
 }
-void MessageEditor::enterEvent(QEvent* evt)
+void MessageEditor::enterEvent(QEvent*)
 {
 	setStyleSheet("QWidget { background-color: rgb(239, 239, 239); }");
 }
-void MessageEditor::leaveEvent(QEvent* evt)
+void MessageEditor::leaveEvent(QEvent*)
 {
 	setStyleSheet("QWidget { background-color: white; }");
 }
-void MessageEditor::mousePressEvent(QMouseEvent* event)
+void MessageEditor::mousePressEvent(QMouseEvent* evt)
 {
-	QPoint pos = mListView->mapFromGlobal(event->globalPos());
+	QPoint pos = mListView->mapFromGlobal(evt->globalPos());
 	//もしクリックされたのが選択されているindexなら、処理は自分で行えばいい。
 	//しかし自分自身でない場合、選択解除ができないのでCloseEditorを呼ぶ。
 	if (!mListView->IsSelectedIndex(pos)) mListView->CloseEditorAtSelectedIndex(pos);
@@ -708,18 +803,18 @@ void MessageEditor::mousePressEvent(QMouseEvent* event)
 	//右クリックの反応がなくなってしまう。
 	//QWidget::mousePressEvent(event);
 }
-void MessageEditor::mouseMoveEvent(QMouseEvent* event)
+void MessageEditor::mouseMoveEvent(QMouseEvent* evt)
 {
 	//テキスト選択状態で生成済みのeditorに侵入したとき、
 	//困ったことにMessageListViewのmouseMoveEventが呼ばれず、mCurrentIndexが更新されない。
 	//なのでこちらから更新する。
-	QPoint pos = mListView->mapFromGlobal(event->globalPos());
+	QPoint pos = mListView->mapFromGlobal(evt->globalPos());
 	//もしクリックされたのが選択されているindexなら、処理は自分で行えばいい。
 	//しかし自分自身でない場合、選択解除ができないのでCloseEditorを呼ぶ。
 	mListView->UpdateCurrentIndex(pos);
-	QWidget::mousePressEvent(event);
+	QWidget::mousePressEvent(evt);
 }
-void MessageEditor::paintEvent(QPaintEvent* event)
+void MessageEditor::paintEvent(QPaintEvent*)
 {
 	QStyleOption opt;
 	opt.init(this);
@@ -844,7 +939,6 @@ int MessageDelegate::PaintReaction(QPainter* painter, QRect crect, int ypos, con
 	QSize size = GetReactionSize(option, index);
 	crect.translate(0, ypos);
 
-	const std::vector<Reaction>& reacs = m->GetReactions();
 	int x = crect.left() + gIconSize + gSpacing;
 	int y = crect.top();//アイコン、テキスト描画位置は通常よりgSpacing分だけ下げる。
 	for (auto& r : m->GetReactions())
@@ -902,7 +996,7 @@ int MessageDelegate::PaintThread(QPainter* painter, QRect crect, int ypos, const
 	painter->restore();
 	return y + size.height() + gSpacing;
 }
-int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const
+int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& /*option*/, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
 	const auto& files = m->GetFiles();
@@ -1063,10 +1157,10 @@ QSize MessageDelegate::GetThreadSize(const QStyleOptionViewItem&, const QModelIn
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
 	if (!m->IsParentMessage()) return QSize(0, 0);
-	size_t u = m->GetThread()->GetReplyUsers().size();
+	int u = (int)m->GetThread()->GetReplyUsers().size();
 	return QSize(gThreadIconSize * u + (gSpacing * (u + 1)), gThreadIconSize + gSpacing * 2);
 }
-QSize MessageDelegate::GetDocumentSize(const QStyleOptionViewItem& option, const QModelIndex& index) const
+QSize MessageDelegate::GetDocumentSize(const QStyleOptionViewItem& /*option*/, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
 	const auto& files = m->GetFiles();

@@ -42,9 +42,14 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 		menu->setStyleSheet("QToolButton::menu-indicator { image: none; }"
 							"QMenu { color: black; background-color: white; border: 1px solid grey; border-radius: 0px; }"
 							"QMenu::item:selected { background-color: palette(Highlight); }");
-		QAction* open = new QAction("Open");
-		connect(open, &QAction::triggered, this, static_cast<void(SlackLogViewer::*)()>(&SlackLogViewer::OpenLogFile));
-		menu->addAction(open);
+		QMenu* open = new QMenu("Open");
+		QAction* open_folder = new QAction("folder");
+		connect(open_folder, &QAction::triggered, this, &SlackLogViewer::OpenLogFileFolder);
+		open->addAction(open_folder);
+		QAction* open_zip = new QAction("zip file");
+		connect(open_zip, &QAction::triggered, this, &SlackLogViewer::OpenLogFileZip);
+		open->addAction(open_zip);
+		menu->addMenu(open);
 		QMenu* recent = new QMenu("Open Recent");
 		recent->setStyleSheet("QMenu { color: black; background-color: white; border: 1px solid grey; border-radius: 0px; }"
 							  "QMenu::item:selected { background-color: palette(Highlight); }");
@@ -142,7 +147,7 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 		connect(mMessageHeader, &MessageHeaderWidget::JumpRequested, this, &SlackLogViewer::JumpToPage);
 
 		connect(mSplitter, &QSplitter::splitterMoved,
-				[this](int pos, int index)
+				[this](int /*pos*/, int /*index*/)
 				{
 					int i = mChannelPages->currentIndex();
 					if (i < 0) return;
@@ -219,7 +224,7 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 		mThread->setModel(new ReplyListModel(mThread));
 		mThread->setItemDelegate(new ReplyDelegate(mThread));
 		connect(mSplitter, &QSplitter::splitterMoved,
-				[this](int pos, int index)
+				[this](int /*pos*/, int index)
 				{
 					if (index == 2)
 						mThread->reset();
@@ -252,14 +257,14 @@ void SlackLogViewer::LoadUsers()
 {
 	gUsers.clear();
 	//emptyuserも初期化しておく。
-	QFile icon("Resources\\batsu.png");
-	if (icon.exists())
+	QFile batsuicon("Resources\\batsu.png");
+	if (batsuicon.exists())
 	{
-		icon.open(QIODevice::ReadOnly);
+		batsuicon.open(QIODevice::ReadOnly);
 		gEmptyUser = std::make_unique<User>();
-		gEmptyUser->SetUserIcon(icon.readAll());
+		gEmptyUser->SetUserIcon(batsuicon.readAll());
 	}
-	QJsonDocument users = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString() + "\\users.json");
+	QJsonDocument users = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "users.json");
 	const QJsonArray& arr = users.array();
 	for (const auto& u : arr)
 	{
@@ -308,13 +313,13 @@ void SlackLogViewer::LoadChannels()
 		widget->deleteLater();
 	}
 	gChannelVector.clear();
-	QJsonDocument users = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString() + "\\channels.json");
+	QJsonDocument users = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "channels.json");
 	const QJsonArray& arr = users.array();
 	ChannelListModel* model = static_cast<ChannelListModel*>(mChannelView->model());
 	model->insertRows(0, arr.size());
-	for (size_t i = 0; i < arr.size(); ++i)
+	for (int i = 0; i < arr.size(); ++i)
 	{
-		auto& c = arr[i];
+		auto c = arr[i];
 		const QString& id = c["id"].toString();
 		const QString& name = c["name"].toString();
 		bool found = false;
@@ -356,28 +361,36 @@ void SlackLogViewer::UpdateRecentFiles()
 		mOpenRecentActions[i]->setVisible(false);
 	}
 }
-void SlackLogViewer::OpenLogFile()
+void SlackLogViewer::OpenLogFileFolder()
 {
 	QString path = gSettings->value("History/LastLogFilePath").toString();
 	path = QFileDialog::getExistingDirectory(this, "Open", path);
+
+	OpenLogFile(path);
+}
+void SlackLogViewer::OpenLogFileZip()
+{
+	QString path = gSettings->value("History/LastLogFilePath").toString();
+	path = QFileDialog::getOpenFileName(this, "Open", path, "Zip files (*.zip)");
+
 	OpenLogFile(path);
 }
 void SlackLogViewer::OpenLogFile(const QString& path)
 {
 	if (path.isEmpty()) return;
+	QFileInfo info(path);
+	if (info.isDir())
 	{
-		QFile file(path + "\\channels.json");
-		if (!file.exists())
+		QFile ch(path + "\\channels.json");
+		if (!ch.exists())
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
 			m->showMessage("channels.json does not exist.");
 			return;
 		}
-	}
-	{
-		QFile file(path + "\\users.json");
-		if (!file.exists())
+		QFile usr(path + "\\users.json");
+		if (!usr.exists())
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
@@ -395,9 +408,16 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 		mSearchView->Close();
 	}
 
-
-	QDir dir = path;
-	gWorkspace = dir.dirName();
+	if (info.isDir())
+	{
+		QDir wsdir = path;
+		gWorkspace = wsdir.dirName();
+	}
+	else
+	{
+		QFileInfo info(path);
+		gWorkspace = info.baseName();
+	}
 
 	//cache用フォルダの作成
 	{
@@ -519,7 +539,6 @@ void SlackLogViewer::SetChannelAndIndex(int ch, int messagerow, int parentrow)
 {
 	SetChannel(ch);
 	MessageListView* m = static_cast<MessageListView*>(mChannelPages->widget(ch));
-	QAbstractItemModel* model = m->model();
 	if (parentrow == -1)
 	{
 		//メッセージの場合
@@ -531,7 +550,6 @@ void SlackLogViewer::SetChannelAndIndex(int ch, int messagerow, int parentrow)
 		m->ScrollToRow(parentrow);
 		//その後返信を表示
 		OpenThread(m->GetMessages()[parentrow].get());
-		QAbstractItemModel* tmodel = mThread->model();
 		//rowは+2する。index==0は親メッセージ、index==1はボーターなので。
 		mThread->ScrollToRow(messagerow + 2);
 	}
@@ -541,7 +559,6 @@ void SlackLogViewer::JumpToPage(int page)
 	int row = mChannelView->currentIndex().row();
 	if (row == -1) return;
 	MessageListView* m = static_cast<MessageListView*>(mChannelPages->widget(row));
-	QAbstractItemModel* model = m->model();
 	m->ScrollToRow(page * gSettings->value("NumOfMessagesPerPage").toInt());
 }
 void SlackLogViewer::OpenThread(const Message* m)
@@ -641,7 +658,7 @@ void SlackLogViewer::OpenCredit()
 	d->setLayout(layout);
 	d->setWindowFlags(d->windowFlags() & ~Qt::WindowContextHelpButtonHint);
 	d->setWindowTitle("About SlackLogViewer");
-	d->setFixedWidth(512);
+	d->setFixedWidth(640);
 	{
 		QLabel* name = new QLabel(("SlackLogViewer ver " + gVersionInfo.GetVersionNumberStr()).c_str());
 		name->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -658,10 +675,11 @@ void SlackLogViewer::OpenCredit()
 		qt->setTextInteractionFlags(Qt::TextSelectableByMouse);
 		layout->addWidget(qt);
 		QLabel* lgpl = new QLabel(
-			"Qt Copyright (C) 2020 The Qt Company Ltd. distributed under the LGPL License<br/>"
-			"<a href=\"https://opensource.org/licenses/LGPL-3.0\">https://opensource.org/licenses/LGPL-3.0</a><br/>"
-			"emojicpp Copyright (c) 2018 Shalitha Suranga distributed under the MIT License<br/>"
-			"<a href=\"https://opensource.org/licenses/MIT\">https://opensource.org/licenses/MIT</a>");
+			"Qt Copyright (C) 2020 The Qt Company Ltd. distributed under LGPL License<br/>"
+			"emojicpp Copyright (c) 2018 Shalitha Suranga distributed under MIT License<br/>"
+			"CMakeHelpers Copyright (C) 2015 halex2005 distributed under MIT License<br/>"
+			"QuaZip Copyright (C) 2005-2020 Sergey A. Tachenov and contributors distributed under LGPL License<br/>"
+			"zlib Copyright (C) 1995-2017 Jean-loup Gailly and Mark Adler distributed under zlib License<br/>");
 		lgpl->setTextInteractionFlags(Qt::LinksAccessibleByMouse | Qt::TextSelectableByMouse);
 		lgpl->setOpenExternalLinks(true);
 		lgpl->setWordWrap(true);
@@ -683,7 +701,6 @@ void SlackLogViewer::closeEvent(QCloseEvent* event)
 QVariant ChannelListModel::data(const QModelIndex& index, int role) const
 {
 	if (role != Qt::DisplayRole) return QVariant();
-	int row = index.row();
 	const Channel* ch = static_cast<const Channel*>(index.internalPointer());
 	return "  # " + ch->GetName();
 }
@@ -692,7 +709,7 @@ int ChannelListModel::rowCount(const QModelIndex& parent) const
 	if (!parent.isValid()) return (int)gChannelVector.size();
 	return 0;
 }
-QModelIndex ChannelListModel::index(int row, int column, const QModelIndex& parent) const
+QModelIndex ChannelListModel::index(int row, int /*column*/, const QModelIndex& parent) const
 {
 	//parentがrootnodeでない場合は子ノードは存在しない。
 	if (parent.isValid()) return QModelIndex();
@@ -798,7 +815,6 @@ void MessageHeaderWidget::Open(const QString& ch, int npages, int currentpage)
 {
 	if (npages <= currentpage) throw std::exception();
 	mNumOfPages = npages;
-	QLayoutItem* item;
 	Clear();
 	int x = std::min(npages, msNumOfButtons);
 	for (int i = 0; i < x; ++i)

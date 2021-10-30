@@ -83,7 +83,7 @@ SearchBoxPopup::SearchBoxPopup(SearchBox* parent)
 		connect(mBox, SIGNAL(returnPressed()), this, SIGNAL(SearchRequested()));
 		//connect(this, &SearchBoxPopup::Hidden, [this]() { mParent->setText(mBox->text()); });
 		//connect(this, &SearchBoxPopup::Hidden, [this]() { mParent->setCursorPosition(mBox->cursorPosition()); });
-		connect(mBox, &QLineEdit::cursorPositionChanged, [this](int oldpos, int newpos) { mParent->setCursorPosition(newpos); });
+		connect(mBox, &QLineEdit::cursorPositionChanged, [this](int /*oldpos*/, int newpos) { mParent->setCursorPosition(newpos); });
 		connect(mBox, &QLineEdit::textChanged, [this](const QString& str)
 				{
 					mParent->setText(str);
@@ -233,8 +233,7 @@ void SearchBoxPopup::HidePopup()
 }
 SearchMode SearchBoxPopup::GetSearchMode() const
 {
-	int mindex = mMatch->currentIndex();
-	SearchMode::Match m;
+	SearchMode::Match m = SearchMode::EXACTPHRASE;
 	switch (mMatch->currentIndex())
 	{
 	case 0: m = SearchMode::EXACTPHRASE; break;
@@ -243,7 +242,7 @@ SearchMode SearchBoxPopup::GetSearchMode() const
 	}
 	SearchMode::Case c = mCase->isChecked() ? SearchMode::SENSITIVE : SearchMode::INSENSITIVE;
 	SearchMode::Regex r = mRegex->isChecked() ? SearchMode::REGEX : SearchMode::KEYWORDS;
-	SearchMode::Range n;
+	SearchMode::Range n = SearchMode::CURRENTCH;
 	switch (mRange->currentIndex())
 	{
 	case 0: n = SearchMode::CURRENTCH; break;

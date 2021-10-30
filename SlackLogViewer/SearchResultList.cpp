@@ -18,7 +18,7 @@
 std::vector<std::shared_ptr<Message>> SearchExactPhrase(int ch, MessageListView* mes, QString phrase, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
-	if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
+	//if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
 	bool case_sensitive = mode.GetCaseMode() == SearchMode::SENSITIVE ? true : false;
 	bool body = mode.Body();
 	bool user = mode.User();
@@ -42,7 +42,7 @@ std::vector<std::shared_ptr<Message>> SearchExactPhrase(int ch, MessageListView*
 std::vector<std::shared_ptr<Message>> SearchWords(int ch, MessageListView* mes, QStringList keys, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
-	if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
+	//if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
 	bool case_sensitive = mode.GetCaseMode() == SearchMode::SENSITIVE ? true : false;
 	bool all = (mode.GetMatchMode() == SearchMode::ALLWORDS ? true : false);
 	bool body = mode.Body();
@@ -68,7 +68,7 @@ std::vector<std::shared_ptr<Message>> SearchWords(int ch, MessageListView* mes, 
 std::vector<std::shared_ptr<Message>> SearchWithRegex(int ch, MessageListView* mes, QRegularExpression regex, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
-	if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
+	//if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
 	bool body = mode.Body();
 	bool user = mode.User();
 	bool fname = mode.FileName();
@@ -156,6 +156,13 @@ size_t SearchResultListView::Search(int ch, const QStackedWidget* stack, const Q
 
 	std::vector<std::shared_ptr<Message>> res;
 	QList<QFuture<std::vector<std::shared_ptr<Message>>>> fs;
+	for (auto i : chs)
+	{
+		//まだチャンネルが読み込まれていない場合、ここで読み込んでおく。
+		//チャンネルの読み込み、検索はどちらもマルチスレッドに行われるので、一応分離しておく。
+		MessageListView* mes = static_cast<MessageListView*>(stack->widget(i));
+		if (!mes->IsConstructed()) mes->Construct(gChannelVector[i].GetName());
+	}
 	if (mode.GetRegexMode() == SearchMode::REGEX)
 	{
 		QRegularExpression regex(key);
@@ -185,7 +192,7 @@ size_t SearchResultListView::Search(int ch, const QStackedWidget* stack, const Q
 	for (auto& f : fs)
 	{
 		f.waitForFinished();
-		auto& r = f.result();
+		auto r = f.result();
 		res.insert(res.end(), make_move_iterator(r.begin()), make_move_iterator(r.end()));
 	}
 	if (chs.size() > 1)
@@ -266,12 +273,12 @@ void FoundMessageEditor::mousePressEvent(QMouseEvent* event)
 {
 	if (event->button() == Qt::LeftButton) emit clicked();
 }
-void FoundMessageEditor::enterEvent(QEvent* evt)
+void FoundMessageEditor::enterEvent(QEvent*)
 {
 	setStyleSheet("background-color: rgb(239, 239, 239);");
 	layout()->itemAt(1)->widget()->setStyleSheet("background-color: rgb(239, 239, 239);");
 }
-void FoundMessageEditor::leaveEvent(QEvent* evt)
+void FoundMessageEditor::leaveEvent(QEvent*)
 {
 	setStyleSheet("background-color: white;");
 	layout()->itemAt(1)->widget()->setStyleSheet("background-color: white;");
@@ -364,10 +371,9 @@ int SearchResultDelegate::PaintChannel(QPainter* painter, QRect crect, int ypos,
 	return ypos + size.height();
 }
 
-QSize SearchResultDelegate::GetChannelSize(const QStyleOptionViewItem& option, const QModelIndex& index) const
+QSize SearchResultDelegate::GetChannelSize(const QStyleOptionViewItem& /*option*/, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
-	const QString& name = m->GetUser().GetName();
 	const QString& ch = gChannelVector[m->GetChannel()].GetName();
 	QFont f;
 	f.setBold(true);

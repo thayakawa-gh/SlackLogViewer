@@ -1341,7 +1341,7 @@ inline static std::map<std::string, std::string> EMOJIS = {
 inline std::string emojize(std::string s)
 {
     int index = -1;
-    int sLen = s.size();
+    int sLen = (int)s.size();
     for (int i = 0; i < sLen; i++) {
         if (s[i] == *L":") {
             if (index == -1) {
@@ -1362,7 +1362,7 @@ inline std::string emojize(std::string s)
                 // replace from index to i
                 //std::cout << s.substr(index, i - index + 1) << std::endl; // <---- uncomment to see what text is replaced, might be good for debugging
                 s.replace(index, i - index + 1, emo);
-                int goBack = i - index + 1 - emo.size();
+                int goBack = i - index + 1 - (int)emo.size();
                 sLen -= goBack;
                 i -= goBack;
                 index = -1;

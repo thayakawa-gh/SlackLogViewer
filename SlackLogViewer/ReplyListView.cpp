@@ -92,7 +92,7 @@ void ReplyListModel::Close()
 }
 int ReplyListModel::GetTrueRowCount() const
 {
-	return mMessages->size() + 2;
+	return (int)mMessages->size() + 2;
 }
 
 QSize ReplyDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const
@@ -155,7 +155,7 @@ QWidget* ReplyDelegate::createEditor(QWidget* parent, const QStyleOptionViewItem
 	w->setStyleSheet("QWidget { border-left: 0px; }");
 	return w;
 }
-QSize ReplyDelegate::GetBorderSize(const QStyleOptionViewItem& option, const QModelIndex& index) const
+QSize ReplyDelegate::GetBorderSize(const QStyleOptionViewItem& /*option*/, const QModelIndex& index) const
 {
 	QFont f;
 	f.setBold(true);

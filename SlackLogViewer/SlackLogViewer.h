@@ -34,7 +34,8 @@ public slots:
 
 	void UpdateRecentFiles();//History/LogFilePathsがアップデート済みであるのが前提。
 
-	void OpenLogFile();//パスをダイアログから指定させる。
+	void OpenLogFileFolder();//フォルダのパスをダイアログから指定させる。
+	void OpenLogFileZip();//zipファイルのパスをダイアログから指定させる。
 	void OpenLogFile(const QString& path);//パスを引数で与える。
 	void OpenOption();
 	void Exit();

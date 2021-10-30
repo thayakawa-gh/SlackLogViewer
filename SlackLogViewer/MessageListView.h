@@ -28,7 +28,7 @@ public:
 signals:
 	void clicked();
 private:
-	virtual void mousePressEvent(QMouseEvent* event) override { emit clicked(); }
+	virtual void mousePressEvent(QMouseEvent*) override { emit clicked(); }
 };
 
 class ImageWidget : public ClickableLabel
@@ -99,6 +99,11 @@ public:
 	MessageListView();
 
 	void Construct(const QString& channel);
+private:
+	static std::pair<std::vector<std::shared_ptr<Message>>, std::vector<std::shared_ptr<Message>>>
+		Construct_parallel(int ch_index, QByteArray data,
+						   std::map<QString, std::shared_ptr<Thread>>* threads, std::mutex* thmtx);
+public:
 	bool IsConstructed() const { return mConstructed; }
 
 	//Clear関数は生成されたQTextDocumentと付随するImageFileを削除しメモリを解放する。
@@ -140,7 +145,7 @@ protected:
 	int mPreviousPage;
 	bool mConstructed;
 	std::vector<std::shared_ptr<Message>> mMessages;
-	std::map<QString, Thread> mThreads;//thread_tsをキーとしている。
+	std::map<QString, std::shared_ptr<Thread>> mThreads;//thread_tsをキーとしている。
 };
 
 class FileDownloader;

@@ -43,7 +43,8 @@ private:
 
 extern VersionInfo gVersionInfo;
 
-QJsonDocument LoadJsonFile(const QString& path);
+QJsonDocument LoadJsonFile(const QString& folder_or_zip, const QString& path);
+QVector<std::pair<QDateTime, QString>> GetMessageFileList(const QString& folder_or_zip, const QString& channel);
 
 class User
 {

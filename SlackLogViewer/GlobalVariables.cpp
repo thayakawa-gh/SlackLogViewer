@@ -4,7 +4,10 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QDir>
 #include <sstream>
+#include <quazip/quazip.h>
+#include <quazip/quazipfile.h>
 
 #include <shlwapi.h>
 #include <atlstr.h>
@@ -95,15 +98,72 @@ VersionInfo::VersionInfo()
 
 extern VersionInfo gVersionInfo = VersionInfo();
 
-QJsonDocument LoadJsonFile(const QString& path)
+QJsonDocument LoadJsonFile(const QString& folder_or_zip, const QString& path)
 {
-	QFile file(path);
-	if (!file.open(QIODevice::ReadOnly))
+	QFileInfo info(folder_or_zip);
+	if (info.isDir())
 	{
-		exit(-1);
+		QFile file(folder_or_zip + "\\" + path);
+		if (!file.open(QIODevice::ReadOnly)) exit(-1);
+		QByteArray data = file.readAll();
+		return QJsonDocument::fromJson(data);
 	}
-	QByteArray data = file.readAll();
-	return QJsonDocument::fromJson(data);
+	else
+	{
+		if (info.suffix() != "zip") exit(-1);
+		QuaZipFile file(folder_or_zip, path);
+		if (!file.open(QIODevice::ReadOnly)) exit(-1);
+		QByteArray data = file.readAll();
+		return QJsonDocument::fromJson(data);
+	}
+}
+QVector<std::pair<QDateTime, QString>> GetMessageFileList(const QString& folder_or_zip, const QString& channel)
+{
+	QFileInfo info(folder_or_zip);
+	QVector<std::pair<QDateTime, QString>> res;
+	if (info.isDir())
+	{
+		QDir dir = gSettings->value("History/LastLogFilePath").toString() + "\\" + channel;
+		auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
+		int ch_index = ch_it - gChannelVector.begin();
+		QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
+		QStringList filenames = dir.entryList(ext, QDir::Files, QDir::Name);
+		res.reserve(filenames.size());
+		for (auto& name : filenames)
+		{
+			int begin = name.indexOf('/');
+			int end = name.lastIndexOf('.', begin);
+			QDateTime d = QDateTime::fromString(name.mid(begin, end));
+			res.push_back(std::pair(d, name));
+		}
+	}
+	else
+	{
+		if (info.suffix() != "zip") exit(-1);
+		QuaZip zip(folder_or_zip);
+		zip.open(QuaZip::mdUnzip);
+		zip.setFileNameCodec("UTF-8");
+		QuaZipFileInfo64 info;
+		for (bool b = zip.goToFirstFile(); b; b = zip.goToNextFile())
+		{
+			zip.getCurrentFileInfo(&info);
+			if (!info.name.startsWith(channel)) continue;
+			if (info.name.endsWith("/")) continue;
+			int begin = info.name.indexOf('/');
+			int end = info.name.lastIndexOf('.');
+			auto dstr = info.name.mid(begin + 1, end - begin - 1);
+			QDateTime d = QDateTime::fromString(dstr, Qt::ISODate);
+			res.push_back(std::pair(d, info.name));
+		}
+	}
+	//ファイルを日付順にソートする。
+	std::sort(res.begin(), res.end(),
+			  [](const std::pair<QDateTime, QString>& name1, const std::pair<QDateTime, QString>& name2)
+			  {
+				  return name1.first < name2.first;
+			  });
+
+	return res;
 }
 
 /*User::User(const QString& id, const QString& name, const QString& image)

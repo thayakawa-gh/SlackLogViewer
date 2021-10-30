@@ -88,7 +88,7 @@ void CacheStatus::showEvent(QShowEvent* event)
 		else if (exp < 5) byte->setText(QString::number(size / std::pow(1024, 4), 'g', 4) + " TB");
 		else byte->setText("inf");
 	};
-	for (size_t i = 0; i < msTypeList.size(); ++i)
+	for (int i = 0; i < msTypeList.size(); ++i)
 	{
 		auto& x = msTypeList[i];
 		QLabel* num = mNum[i];
@@ -102,8 +102,8 @@ void CacheStatus::showEvent(QShowEvent* event)
 			num_all += infos.size();
 			//total of file size
 			qint64 size = 0;
-			for (auto& i : infos)
-				size += i.size();
+			for (auto& info : infos)
+				size += info.size();
 			size_all += size;
 			print_size(byte, size);
 		}

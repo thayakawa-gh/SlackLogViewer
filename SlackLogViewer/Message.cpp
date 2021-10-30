@@ -127,11 +127,11 @@ QString MrkdwnToHtml(const QString& str)
 	//となる。
 	//コードブロックは単純に表示すべきなので、2n番目だけ置換処理する。
 
-	for (size_t i = 0; i < s.size(); i += 2)
+	for (int i = 0; i < s.size(); i += 2)
 	{
 		MrkdwnToHtml_impl(s[i]);
 	}
-	for (size_t i = 1; i < s.size(); i += 2)
+	for (int i = 1; i < s.size(); i += 2)
 	{
 		s[i] = "<style> pre { width: 100%; border: 1px solid #000; white-space: pre-wrap; } </style>\n<pre><code><div style=\"background-color:#EDF7FF;\">" + s[i] + "</div></code></pre>";
 	}
@@ -239,8 +239,8 @@ OtherFile::OtherFile(const QJsonObject& o)
 	: AttachedFile(OTHER, o)
 {}
 
-Message::Message(int ch, int row, const QJsonObject& o)
-	: mChannel(ch), mRow(row), mThread(nullptr)
+Message::Message(int ch, const QJsonObject& o)
+	: mChannel(ch), mRow(0), mThread(nullptr)
 {
 	mMessage = o.find("text").value().toString();
 	mTimeStamp.setTime_t(o.find("ts").value().toString().toDouble());
@@ -266,9 +266,10 @@ Message::Message(int ch, int row, const QJsonObject& o)
 		//sub.value() == "channel_name")
 	{
 		auto it = o.find("user");
-		if (it == o.end()) throw std::exception();
-		if (it.value().toString().isEmpty()) throw std::exception();
-		mUserID = it.value().toString();
+		if (it != o.end()) mUserID = it.value().toString();
+		//どうもエクスポートしたデータが破損しているケースがあるらしい。
+		//「メッセージがあった」という記録のみがあって、メッセージの内容やユーザーなどの必須情報が一切欠落している。
+		//意味がわからんがどうしようもないので、ユーザー情報は空にしておく。
 	}
 
 	auto file = o.find("files");
@@ -291,24 +292,24 @@ Message::Message(int ch, int row, const QJsonObject& o)
 	auto reactions = o.find("reactions");
 	if (reactions != o.end())
 	{
-		auto& ar = reactions.value().toArray();
+		auto ar = reactions.value().toArray();
 		mReactions.reserve(ar.size());
-		for (auto& a : ar)
+		for (auto a : ar)
 		{
-			const QJsonObject& o = a.toObject();
-			QJsonArray& uar = o["users"].toArray();
+			QJsonObject ro = a.toObject();
+			QJsonArray uar = ro["users"].toArray();
 			QStringList users;
 			users.reserve(uar.size());
-			for (auto& u : uar)
+			for (auto u : uar)
 				users.append(u.toString());
-			mReactions.emplace_back(o.find("name").value().toString(), std::move(users));
+			mReactions.emplace_back(ro.find("name").value().toString(), std::move(users));
 		}
 	}
 }
-Message::Message(int ch, int row, const QJsonObject& o, Thread& thread)
-	: Message(ch, row, o)
+Message::Message(int ch, const QJsonObject& o, QString threads_ts)
+	: Message(ch, o)
 {
-	mThread = &thread;
+	mThreadTimeStampStr = std::move(threads_ts);
 }
 void Message::CreateTextDocument() const
 {
@@ -328,6 +329,6 @@ bool Message::IsParentMessage() const
 	return true;
 }
 
-Thread::Thread(std::vector<QString>&& users)
-	: mParent(nullptr), mReplyUsers(std::move(users))
+Thread::Thread(const Message* parent, std::vector<QString>&& users)
+	: mParent(parent), mReplyUsers(std::move(users))
 {}
