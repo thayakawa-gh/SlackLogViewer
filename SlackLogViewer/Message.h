@@ -258,10 +258,10 @@ public:
 		return false;
 	}
 
-	Thread* GetThread() { return mThread.get(); }
-	const Thread* GetThread() const { return mThread.get(); }
+	Thread* GetThread() { return mThread; }
+	const Thread* GetThread() const { return mThread; }
 	const QString& GetThreadTimeStampStr() const { return mThreadTimeStampStr; }
-	void SetThread(const std::shared_ptr<Thread>& th) { mThread = th; }
+	void SetThread(Thread* th) { mThread = th; }
 
 	const std::vector<std::unique_ptr<AttachedFile>>& GetFiles() const { return mFiles; }
 	std::vector<std::unique_ptr<AttachedFile>>& GetFiles() { return mFiles; }
@@ -289,7 +289,7 @@ private:
 	//自分自身がスレッド内の返信である場合、自分自身を格納するThreadへのポインタが格納されている。
 	//自分が通常のメッセージか返信家はIsReply関数で識別できる。
 	QString mThreadTimeStampStr;
-	std::shared_ptr<Thread> mThread;
+	Thread* mThread;
 	std::vector<std::unique_ptr<AttachedFile>> mFiles;
 };
 

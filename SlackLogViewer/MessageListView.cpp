@@ -329,7 +329,8 @@ void MessageListView::Construct(const QString& channel)
 				//以前は通常のメッセージとして表示していたが、もうめんどいから無視してしまおう。
 				continue;
 			}
-			it->second->AddReply(std::move(rep));
+			rep->SetThread(it->second.get());
+			it->second->AddReply(rep);
 		}
 	}
 
@@ -357,20 +358,19 @@ MessageListView::Construct_parallel(int ch_index, QByteArray data,
 		{
 			//スレッドの親メッセージかリプライは、thread_tsを持つ。
 			auto it2 = o.find("replies");
-			QString thread_ts = it.value().toString();
+			const QString& thread_ts = it.value().toString();
 			if (it2 != o.end())
 			{
 				//"replies"を持つので親メッセージ。
 				//const QJsonArray& ra = it2.value().toArray();
-				const QString& key = it.value().toString();
 				const QJsonArray& ausers = o.find("reply_users").value().toArray();
 				std::vector<QString> users(ausers.size());
 				for (int i = 0; i < ausers.size(); ++i) users[i] = ausers[i].toString();
-				std::shared_ptr<Message> mes = std::make_shared<Message>(ch_index, o, std::move(thread_ts));
+				std::shared_ptr<Message> mes = std::make_shared<Message>(ch_index, o, thread_ts);
 				messages.emplace_back(mes);
 				std::lock_guard<std::mutex> lg(*thmtx);
-				auto [thit, b] = threads->insert(std::make_pair(key, std::make_shared<Thread>(mes.get(), std::move(users))));
-				mes->SetThread(thit->second);
+				auto [thit, b] = threads->insert(std::make_pair(thread_ts, std::make_shared<Thread>(mes.get(), std::move(users))));
+				mes->SetThread(thit->second.get());
 			}
 			else
 			{
