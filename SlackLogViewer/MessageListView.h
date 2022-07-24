@@ -144,6 +144,10 @@ protected:
 	QModelIndex mSelectedIndex;
 	int mPreviousPage;
 	bool mConstructed;
+	//mMessagesはstd::shared_ptrが望ましい。
+	//SearchResultListViewはMessageListViewを継承しているが、
+	//この内部ではmMessagesを部分的に共有する必要がある。
+	//愚策だが生ポインタを管理するよりはマシだろう。
 	std::vector<std::shared_ptr<Message>> mMessages;
 	std::map<QString, std::shared_ptr<Thread>> mThreads;//thread_tsをキーとしている。
 };

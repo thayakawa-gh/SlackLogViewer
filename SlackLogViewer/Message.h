@@ -289,6 +289,8 @@ private:
 	//自分自身がスレッド内の返信である場合、自分自身を格納するThreadへのポインタが格納されている。
 	//自分が通常のメッセージか返信家はIsReply関数で識別できる。
 	QString mThreadTimeStampStr;
+	//MessageListView、Message、Threadなどで複雑に共有されうるmThreadをstd::shared_ptrにするべきではない。
+	//std::weak_ptrと悩ましいが、Messagesが生きている限りThreadが死なないのは明らかなので、とりあえず生ポインタにしておく。
 	Thread* mThread;
 	std::vector<std::unique_ptr<AttachedFile>> mFiles;
 };

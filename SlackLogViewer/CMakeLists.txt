@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 set(VER_MAJOR 1)
 set(VER_MINOR 1)
 set(VER_PATCH 2)
-set(VER_REVISION 3)
+set(VER_REVISION 4)
 
 project(SlackLogViewer VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}.${VER_REVISION}")
 
@@ -12,12 +12,12 @@ if(WIN32)
 
     generate_product_version(PruductVersionFiles
         NAME "SlackLogViewer"
-        FILE_DESCRIPTION ADAPT-IVE
+        FILE_DESCRIPTION SlackLogViewer
         VERSION_MAJOR ${VER_MAJOR}
         VERSION_MINOR ${VER_MINOR}
         VERSION_PATCH ${VER_PATCH}
         VERSION_REVISION ${VER_REVISION}
-        COMPANY_COPYRIGHT "Copyright(C) 2020-2021 T.Hayakawa"
+        COMPANY_COPYRIGHT "Copyright(C) 2020-2022 T.Hayakawa"
         ORIGINAL_FILENAME SlackLogViewer.exe
         INTERNAL_NAME SlackLogViewer.exe)
 else()
