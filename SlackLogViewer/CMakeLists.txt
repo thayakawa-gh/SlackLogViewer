@@ -21,7 +21,7 @@ if(WIN32)
         ORIGINAL_FILENAME SlackLogViewer.exe
         INTERNAL_NAME SlackLogViewer.exe)
 else()
-    configure_file("Version.h.in")
+    configure_file("Version.h.in" "Version.h")
     #include_directories(${PROJECT_BINARY_BIN})
 endif()
 
@@ -78,6 +78,11 @@ add_custom_command(
     ${CMAKE_BINARY_DIR}/Cache/)
 install(DIRECTORY DESTINATION "Cache")
 
+find_package(TBB)
+if(TBB_FOUND)
+    target_link_libraries(${PROJECT_NAME} PRIVATE tbb)
+endif()
+
 deploy_qt(${PROJECT_NAME})
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPER_BUILD_TYPE)
@@ -93,13 +98,15 @@ add_custom_command(
 install(FILES ${QUAZIP_SHARED_LOC} DESTINATION ./)
 
 #copy zlib dll
-get_filename_component(ZLIB_SHARED_NAME ${ZLIB_SHARED} NAME)
-add_custom_command(
-    TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-    ${ZLIB_SHARED}
-    ${CMAKE_CURRENT_BINARY_DIR}/${ZLIB_SHARED_NAME})
-install(FILES ${ZLIB_SHARED} DESTINATION ./)
+if(DEFINED ZLIB_SHARED)
+    get_filename_component(ZLIB_SHARED_NAME ${ZLIB_SHARED} NAME)
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${ZLIB_SHARED}
+        ${CMAKE_CURRENT_BINARY_DIR}/${ZLIB_SHARED_NAME})
+    install(FILES ${ZLIB_SHARED} DESTINATION ./)
+endif()
 
 #copy openssl dll
 if(DEFINED OPENSSL_DIR)

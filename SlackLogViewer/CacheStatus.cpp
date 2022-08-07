@@ -10,6 +10,7 @@
 #include "GlobalVariables.h"
 #include "MessageListView.h"
 #include "FileDownloader.h"
+#include <cmath>
 
 CacheStatus::CacheStatus(QWidget* parent)
 	: mParent(parent)

@@ -9,11 +9,13 @@
 #include <quazip/quazip.h>
 #include <quazip/quazipfile.h>
 
+#ifdef _WIN32
 #include <shlwapi.h>
 #include <atlstr.h>
 #include <locale.h>
 #pragma comment(lib, "version.lib")
 #undef RGB
+#endif
 
 std::string MakeVersionStr(VersionNumber n)
 {
@@ -43,6 +45,7 @@ inline std::vector<std::string> SplitStr(const std::string& str, char delim)
 }
 VersionInfo::VersionInfo()
 {
+#ifdef _WIN32
 	const int MAX_LEN = 2048;
 	CString csMsg;
 	CString csBuf;
@@ -94,6 +97,7 @@ VersionInfo::VersionInfo()
 	mCopyright = buf;
 
 	delete[] pBlock;
+#endif
 }
 
 extern VersionInfo gVersionInfo = VersionInfo();
