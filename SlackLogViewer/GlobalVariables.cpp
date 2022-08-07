@@ -15,6 +15,8 @@
 #include <locale.h>
 #pragma comment(lib, "version.lib")
 #undef RGB
+#else
+#include <Version.h>
 #endif
 
 std::string MakeVersionStr(VersionNumber n)
@@ -97,6 +99,9 @@ VersionInfo::VersionInfo()
 	mCopyright = buf;
 
 	delete[] pBlock;
+#else
+        mVersionNumber = VersionNumber{ std::stoi(PROJECT_VER_MAJOR), std::stoi(PROJECT_VER_MINOR), Stage(-std::stoi(PROJECT_VER_PATCH)), std::stoi(PROJECT_VER_REVISION) };
+        mVersionNumberStr = MakeVersionStr(mVersionNumber);
 #endif
 }
 

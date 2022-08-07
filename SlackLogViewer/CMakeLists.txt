@@ -22,7 +22,7 @@ if(WIN32)
         INTERNAL_NAME SlackLogViewer.exe)
 else()
     configure_file("Version.h.in" "Version.h")
-    #include_directories(${PROJECT_BINARY_BIN})
+    include_directories(${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
