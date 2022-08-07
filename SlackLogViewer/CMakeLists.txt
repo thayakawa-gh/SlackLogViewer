@@ -78,6 +78,7 @@ add_custom_command(
     ${CMAKE_BINARY_DIR}/Cache/)
 install(DIRECTORY DESTINATION "Cache")
 
+# std::execution::par might require TBB
 find_package(TBB)
 if(TBB_FOUND)
     target_link_libraries(${PROJECT_NAME} PRIVATE tbb)
