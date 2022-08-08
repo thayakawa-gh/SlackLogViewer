@@ -102,6 +102,8 @@ VersionInfo::VersionInfo()
 #else
         mVersionNumber = VersionNumber{ std::stoi(PROJECT_VER_MAJOR), std::stoi(PROJECT_VER_MINOR), Stage(-std::stoi(PROJECT_VER_PATCH)), std::stoi(PROJECT_VER_REVISION) };
         mVersionNumberStr = MakeVersionStr(mVersionNumber);
+        mFileDescription = "SlackLogViewer";
+        mCopyright = COMPANY_COPYRIGHT;
 #endif
 }
 

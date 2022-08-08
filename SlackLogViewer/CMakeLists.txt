@@ -4,6 +4,7 @@ set(VER_MAJOR 1)
 set(VER_MINOR 1)
 set(VER_PATCH 2)
 set(VER_REVISION 4)
+set(COMPANY_COPYRIGHT "Copyright(C) 2020-2022 T.Hayakawa")
 
 project(SlackLogViewer VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}.${VER_REVISION}")
 
@@ -17,7 +18,7 @@ if(WIN32)
         VERSION_MINOR ${VER_MINOR}
         VERSION_PATCH ${VER_PATCH}
         VERSION_REVISION ${VER_REVISION}
-        COMPANY_COPYRIGHT "Copyright(C) 2020-2022 T.Hayakawa"
+        COMPANY_COPYRIGHT ${COMPANY_COPYRIGHT}
         ORIGINAL_FILENAME SlackLogViewer.exe
         INTERNAL_NAME SlackLogViewer.exe)
 else()
