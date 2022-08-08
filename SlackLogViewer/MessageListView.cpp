@@ -56,7 +56,7 @@ ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
 				{
 					QString path = QFileDialog::getSaveFileName(MainWindow::Get(),
 																"download",
-																gSettings->value("History/LastLogFilePath").toString() + "\\" + i->GetFileName());
+																gSettings->value("History/LastLogFilePath").toString() + "/" + i->GetFileName());
 					if (path.isEmpty()) return;
 					FileDownloader* fd = new FileDownloader(i->GetUrl());
 					QObject::connect(fd, &FileDownloader::Downloaded, [fd, path]()
@@ -135,14 +135,14 @@ DocumentWidget::DocumentWidget(const AttachedFile* file, int /*pwidth*/)
 			{
 				QString path = QFileDialog::getSaveFileName(MainWindow::Get(),
 															"download",
-															gSettings->value("History/LastLogFilePath").toString() + "\\" + i->GetFileName());
+															gSettings->value("History/LastLogFilePath").toString() + "/" + i->GetFileName());
 				if (path.isEmpty()) return;
 
-				QString orgpath = "Cache\\" + gWorkspace;
-				if (i->IsText()) orgpath += "\\Text\\" + i->GetID();
-				else if (i->IsImage()) orgpath += "\\Image\\" + i->GetID();
-				else if (i->IsPDF()) orgpath += "\\PDF\\" + i->GetID();
-				else if (i->IsOther()) orgpath += "\\Others\\" + i->GetID();
+				QString orgpath = "Cache/" + gWorkspace;
+				if (i->IsText()) orgpath += "/Text/" + i->GetID();
+				else if (i->IsImage()) orgpath += "/Image/" + i->GetID();
+				else if (i->IsPDF()) orgpath += "/PDF/" + i->GetID();
+				else if (i->IsOther()) orgpath += "/Others/" + i->GetID();
 				else throw std::exception();
 				QFile f(orgpath);
 				if (f.exists())
@@ -242,7 +242,7 @@ MessageListView::MessageListView()
 void MessageListView::Construct(const QString& channel)
 {
 	mConstructed = true;
-	/*QDir dir = gSettings->value("History/LastLogFilePath").toString() + "\\" + channel;
+	/*QDir dir = gSettings->value("History/LastLogFilePath").toString() + "/" + channel;
 	QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
 	QStringList files = dir.entryList(ext, QDir::Files, QDir::Name);*/
 	auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
@@ -260,7 +260,7 @@ void MessageListView::Construct(const QString& channel)
 	if (info.isDir())
 	{
 		//ディレクトリの場合。
-		QDir dir = folder_or_zip + "\\" + channel;
+		QDir dir = folder_or_zip + "/" + channel;
 		//auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
 		//int ch_index = ch_it - gChannelVector.begin();
 		QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
@@ -270,7 +270,7 @@ void MessageListView::Construct(const QString& channel)
 			int end = name.lastIndexOf('.');
 			auto dtstr = name.left(end);
 			QDateTime d = QDateTime::fromString(dtstr, Qt::ISODate);
-			QFile file(folder_or_zip + "\\" + channel  + "\\" + name);
+			QFile file(folder_or_zip + "/" + channel  + "/" + name);
 			if (!file.open(QIODevice::ReadOnly)) exit(-1);
 			QByteArray data = file.readAll();
 			//auto [mrit, b] = messages_and_replies.insert(std::make_pair(std::move(d), MessagesAndReplies{}));
@@ -1046,8 +1046,8 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 			if (f->IsText() || f->IsPDF())
 			{
 				//一応キャッシュフォルダにダウンロードしておく。
-				QString dir = f->IsText() ? "\\Text\\" : "\\PDF\\";
-				QString fpath = "Cache\\" + gWorkspace + dir + f->GetID();
+				QString dir = f->IsText() ? "/Text/" : "/PDF/";
+				QString fpath = "Cache/" + gWorkspace + dir + f->GetID();
 				QFile file(fpath);
 				if (!file.exists())
 				{

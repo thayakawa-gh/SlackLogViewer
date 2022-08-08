@@ -36,7 +36,7 @@ DocumentView::DocumentView()
 		QPushButton* close = new QPushButton();
 		close->setCursor(Qt::PointingHandCursor);
 		close->setStyleSheet("border: 0px;");
-		QPixmap icon("Resources\\batsu.png");
+		QPixmap icon("Resources/batsu.png");
 		close->setIcon(icon);
 		connect(close, &QPushButton::clicked, this, &DocumentView::Closed);
 		bar->addWidget(close);
@@ -56,7 +56,7 @@ void DocumentView::Open(const AttachedFile* f)
 	}
 	else
 	{
-		mUserIcon->setPixmap(QPixmap("Resources\\batsu.png").scaled(QSize(gIconSize, gIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+		mUserIcon->setPixmap(QPixmap("Resources/batsu.png").scaled(QSize(gIconSize, gIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		mTimeStampStr->setText("_______ " + f->GetTimeStampStr());
 	}
 }
@@ -146,7 +146,7 @@ TextView::TextView()
 
 void TextView::OpenText(const AttachedFile* t)
 {
-	QFile file("Cache\\" + gWorkspace + "\\Text\\" + t->GetID());
+	QFile file("Cache/" + gWorkspace + "/Text/" + t->GetID());
 	if (file.exists())
 	{
 		this->Open(t);
@@ -177,7 +177,7 @@ PDFView::~PDFView()
 
 void PDFView::OpenPDF(const AttachedFile* t)
 {
-	QString path = ".\\Cache\\" + gWorkspace + "\\PDF\\" + t->GetID();
+	QString path = "./Cache/" + gWorkspace + "/PDF/" + t->GetID();
 	QFileInfo file(path);
 	if (file.exists())
 	{

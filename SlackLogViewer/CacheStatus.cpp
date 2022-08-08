@@ -38,7 +38,7 @@ CacheStatus::CacheStatus(QWidget* parent)
 		QToolButton* dl = new QToolButton();
 		dl->setCursor(Qt::PointingHandCursor);
 		dl->setStyleSheet("QToolButton::menu-indicator { image: none; border: 0px; }");
-		dl->setIcon(QIcon("Resources\\download.png"));
+		dl->setIcon(QIcon("Resources/download.png"));
 		dl->setToolTip("Download all files in");
 		dl->setPopupMode(QToolButton::InstantPopup);
 		QMenu* dlmenu = new QMenu();
@@ -55,7 +55,7 @@ CacheStatus::CacheStatus(QWidget* parent)
 		dl->setMenu(dlmenu);
 
 		QPushButton* cl = new QPushButton();
-		cl->setIcon(QIcon("Resources\\clear.svg"));
+		cl->setIcon(QIcon("Resources/clear.svg"));
 		cl->setCursor(Qt::PointingHandCursor);
 		cl->setToolTip("Clear cache");
 		connect(cl, &QPushButton::clicked, [this, count]() { ClearCacheRequested((Type)count); });
@@ -97,7 +97,7 @@ void CacheStatus::showEvent(QShowEvent* event)
 		if (x != "All")
 		{
 			//num of files
-			QDir dir("Cache\\" + gWorkspace + "\\" + x);
+			QDir dir("Cache/" + gWorkspace + "/" + x);
 			auto infos = dir.entryInfoList(QDir::Files);
 			num->setText(QString::number(infos.size()));
 			num_all += infos.size();
@@ -138,11 +138,11 @@ CacheResult CacheAllFiles(int ch, MessageListView* mes, CacheStatus::Type type)
 			pdf && f->IsPDF() ||
 			others && f->IsOther())
 		{
-			QString path = "Cache\\" + gWorkspace;
-			if (f->IsText()) path += "\\Text\\" + f->GetID();
-			else if (f->IsImage()) path += "\\Image\\" + f->GetID();
-			else if (f->IsPDF()) path += "\\PDF\\" + f->GetID();
-			else if (f->IsOther()) path += "\\Others\\" + f->GetID();
+			QString path = "Cache/" + gWorkspace;
+			if (f->IsText()) path += "/Text/" + f->GetID();
+			else if (f->IsImage()) path += "/Image/" + f->GetID();
+			else if (f->IsPDF()) path += "/PDF/" + f->GetID();
+			else if (f->IsOther()) path += "/Others/" + f->GetID();
 			else throw std::exception();
 			{
 				QFile file(path);
@@ -203,7 +203,7 @@ void ClearCache(CacheStatus::Type type)
 {
 	auto del = [](const char* type)
 	{
-		QString path = "Cache\\" + gWorkspace + "\\" + type;
+		QString path = "Cache/" + gWorkspace + "/" + type;
 		QDir dir(path);
 		auto infos = dir.entryInfoList(QDir::Files);
 		for (auto& f : infos)
