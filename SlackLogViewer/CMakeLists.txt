@@ -74,8 +74,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Resources/
 		DESTINATION Resources)
 add_custom_command(
     TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_CURRENT_SOURCE_DIR}/Cache/
+    COMMAND ${CMAKE_COMMAND} -E make_directory
     ${CMAKE_BINARY_DIR}/Cache/)
 install(DIRECTORY DESTINATION "Cache")
 
@@ -91,16 +90,18 @@ string(TOUPPER ${CMAKE_BUILD_TYPE} UPPER_BUILD_TYPE)
 
 #copy quazip dll
 get_target_property(QUAZIP_SHARED_LOC QuaZip::QuaZip IMPORTED_LOCATION_${UPPER_BUILD_TYPE})
-get_filename_component(QUAZIP_SHARED_NAME ${QUAZIP_SHARED_LOC} NAME)
-add_custom_command(
-    TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-    ${QUAZIP_SHARED_LOC}
-    ${CMAKE_CURRENT_BINARY_DIR}/${QUAZIP_SHARED_NAME})
-install(FILES ${QUAZIP_SHARED_LOC} DESTINATION ./)
+if (WIN32 AND QUAZIP_SHARED_LOC)
+    get_filename_component(QUAZIP_SHARED_NAME ${QUAZIP_SHARED_LOC} NAME)
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${QUAZIP_SHARED_LOC}
+        ${CMAKE_CURRENT_BINARY_DIR}/${QUAZIP_SHARED_NAME})
+    install(FILES ${QUAZIP_SHARED_LOC} DESTINATION ./)
+endif()
 
 #copy zlib dll
-if(DEFINED ZLIB_SHARED)
+if(WIN32 AND DEFINED ZLIB_SHARED)
     get_filename_component(ZLIB_SHARED_NAME ${ZLIB_SHARED} NAME)
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
@@ -111,10 +112,9 @@ if(DEFINED ZLIB_SHARED)
 endif()
 
 #copy openssl dll
-if(DEFINED OPENSSL_DIR)
+if(WIN32 AND DEFINED OPENSSL_DIR)
     file(GLOB LIBSSL_SHARED "${OPENSSL_DIR}/libssl*.dll")
     get_filename_component(LIBSSL_SHARED_NAME ${LIBSSL_SHARED} NAME)
-    message("libssl dll is ${LIBSSL_SHARED}")
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
@@ -124,7 +124,6 @@ if(DEFINED OPENSSL_DIR)
 
     file(GLOB LIBCRYPTO_SHARED "${OPENSSL_DIR}/libcrypto*.dll")
     get_filename_component(LIBCRYPTO_SHARED_NAME ${LIBCRYPTO_SHARED} NAME)
-    message("libcrypto dll is ${LIBCRYPTO_SHARED}")
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
