@@ -1,4 +1,4 @@
-#include <QEventLoop.h>
+#include <QEventLoop>
 #include "FileDownloader.h"
 
 FileDownloader::FileDownloader(QUrl url)
