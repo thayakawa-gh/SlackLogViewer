@@ -271,7 +271,7 @@ FoundMessageEditor::FoundMessageEditor(const Message* m, QWidget* mw)
 }
 void FoundMessageEditor::mousePressEvent(QMouseEvent* event)
 {
-	if (event->button() == Qt::LeftButton) emit clicked();
+	if (event->button() == Qt::LeftButton) Q_EMIT clicked();
 }
 void FoundMessageEditor::enterEvent(QEvent*)
 {

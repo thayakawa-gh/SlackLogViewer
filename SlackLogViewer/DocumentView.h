@@ -20,11 +20,11 @@ public:
 	DocumentView();
 	virtual ~DocumentView() = default;
 
-signals:
+Q_SIGNALS:
 
 	void Closed();
 
-public slots:
+public Q_SLOTS:
 
 	void Open(const AttachedFile* i);
 
@@ -52,7 +52,7 @@ public:
 
 	ImageView();
 
-public slots:
+public Q_SLOTS:
 
 	void OpenImage(const ImageFile* i);
 
@@ -88,7 +88,7 @@ public:
 
 	TextView();
 
-public slots:
+public Q_SLOTS:
 
 	void OpenText(const AttachedFile* t);
 

@@ -30,7 +30,7 @@ private:
 	void LoadUsers();
 	void LoadChannels();
 
-public slots:
+public Q_SLOTS:
 
 	void UpdateRecentFiles();//History/LogFilePathsがアップデート済みであるのが前提。
 
@@ -108,11 +108,11 @@ public:
 
 	MessageHeaderWidget();
 
-signals:
+Q_SIGNALS:
 
 	void JumpRequested(int page);
 
-public slots:
+public Q_SLOTS:
 
 	void Open(const QString& ch, int npages, int currentpage);
 	void SetCurrentPage(int page);

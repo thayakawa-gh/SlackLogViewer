@@ -64,7 +64,7 @@ public:
 
 	MessageListView* GetView() { return mView; }
 
-signals:
+Q_SIGNALS:
 
 	void Closed();
 
@@ -107,7 +107,7 @@ public:
 	virtual void enterEvent(QEvent* evt) override;
 	void leaveEvent(QEvent* evt) override;
 
-signals:
+Q_SIGNALS:
 
 	void clicked();
 

@@ -55,6 +55,8 @@ else()
 endif()
 add_definitions(-D_UNICODE -DUNICODE -DQAPPLICATION_CLASS=QApplication)
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE QT_NO_KEYWORDS)
+
 target_link_libraries(
     ${PROJECT_NAME}
     PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Concurrent Qt5::Network Qt5::WebEngineWidgets QuaZip::QuaZip)

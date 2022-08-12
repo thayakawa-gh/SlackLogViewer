@@ -47,12 +47,12 @@ void FileDownloader::ReplyFinished(QNetworkReply* reply)
 		mDownloadedData = reply->readAll();
 		//emit a signal
 		//reply->deleteLater();
-		emit Downloaded();
+		Q_EMIT Downloaded();
 	}
 	else
 	{
 		mError = reply->error();
 		//reply->deleteLater();
-		emit DownloadFailed();
+		Q_EMIT DownloadFailed();
 	}
 }

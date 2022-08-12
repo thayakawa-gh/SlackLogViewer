@@ -53,13 +53,13 @@ public:
 
 	//virtual bool eventFilter(QObject* obj, QEvent* ev) override;
 	void PassEventToBox(QEvent* event_) { mBox->event(event_); }
-	virtual void showEvent(QShowEvent* event) { emit Showed(); QWidget::showEvent(event); }
-	virtual void hideEvent(QHideEvent* event) { emit Hidden(); QWidget::hideEvent(event); }
+	virtual void showEvent(QShowEvent* event) { Q_EMIT Showed(); QWidget::showEvent(event); }
+	virtual void hideEvent(QHideEvent* event) { Q_EMIT Hidden(); QWidget::hideEvent(event); }
 	virtual void closeEvent(QCloseEvent* event) override;
 
 	QLineEdit* GetSearchBox() { return mBox; }
 
-signals:
+Q_SIGNALS:
 
 	void Hidden();
 	void Showed();
@@ -92,11 +92,11 @@ public:
 	virtual void inputMethodEvent(QInputMethodEvent* event) override;
 	virtual QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
 
-signals:
+Q_SIGNALS:
 
 	void SearchRequested(QString key, SearchMode s);
 
-public slots:
+public Q_SLOTS:
 
 	void ExecuteSearch();
 
@@ -114,13 +114,13 @@ public:
 
 	MenuBar(QMenu* menu, QWidget* parent = nullptr);
 
-signals:
+Q_SIGNALS:
 
 	void SearchRequested(QString key, SearchMode s);
 	void CacheAllRequested(CacheStatus::Channel ch, CacheStatus::Type type);
 	void ClearCacheRequested(CacheStatus::Type type);
 
-private slots:
+private Q_SLOTS:
 
 
 private:

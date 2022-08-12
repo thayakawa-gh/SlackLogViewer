@@ -171,7 +171,7 @@ DocumentWidget::DocumentWidget(const AttachedFile* file, int /*pwidth*/)
 }
 void DocumentWidget::mousePressEvent(QMouseEvent*)
 {
-	emit clicked(mFile);
+	Q_EMIT clicked(mFile);
 }
 
 ThreadWidget::ThreadWidget(Message& m, QSize threadsize)
@@ -216,7 +216,7 @@ ThreadWidget::ThreadWidget(Message& m, QSize threadsize)
 
 void ThreadWidget::mousePressEvent(QMouseEvent*)
 {
-	emit clicked(mParentMessage);
+	Q_EMIT clicked(mParentMessage);
 }
 void ThreadWidget::enterEvent(QEvent*)
 {
@@ -524,7 +524,7 @@ void MessageListView::UpdateCurrentPage()
 	if (page != mPreviousPage)
 	{
 		mPreviousPage = page;
-		emit CurrentPageChanged(page);
+		Q_EMIT CurrentPageChanged(page);
 	}
 }
 void MessageListView::UpdateSelection(bool b)
@@ -1033,7 +1033,7 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 				auto* model = static_cast<MessageListModel*>(mListView->model());
 				connect(fd, &FileDownloader::Finished, [model, index]()
 						{
-							emit model->ImageDownloadFinished(index, index, QVector<int>());
+							Q_EMIT model->ImageDownloadFinished(index, index, QVector<int>());
 						});
 				i->RequestDownload(fd);
 				draw(painter, crect, y, gTempImage->scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));

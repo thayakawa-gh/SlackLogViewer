@@ -23,13 +23,13 @@ public:
 	//ダウンロードを待機し、ダウンロードに成功したらtrueを、失敗したらfalseを返す。
 	bool Wait();
 
-signals:
+Q_SIGNALS:
 
 	void Finished();
 	void Downloaded();
 	void DownloadFailed();
 
-private slots:
+private Q_SLOTS:
 
 	void ReplyFinished(QNetworkReply* reply);
 

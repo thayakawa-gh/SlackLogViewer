@@ -875,10 +875,10 @@ void MessageHeaderWidget::SetCurrentPage(int page)
 //例えば、最後のページのメッセージ数が極端に少なかったりすると、スクロールできず、
 //最後の一つ手前のページに飛ぶ、なんてこともある。
 //そのため、mCurrentPageの更新はあくまでSetCurrentPage関数中で行う。この関数はMessageListViewのScrollToなどから呼ばれる。
-void MessageHeaderWidget::JumpToTop() { emit JumpRequested(0); }
-void MessageHeaderWidget::JumpToPrev() { emit JumpRequested(mCurrentPage - 1); }
-void MessageHeaderWidget::JumpToNext() { emit JumpRequested(mCurrentPage + 1); }
-void MessageHeaderWidget::JumpToBottom() { emit JumpRequested(mNumOfPages - 1); }
+void MessageHeaderWidget::JumpToTop() { Q_EMIT JumpRequested(0); }
+void MessageHeaderWidget::JumpToPrev() { Q_EMIT JumpRequested(mCurrentPage - 1); }
+void MessageHeaderWidget::JumpToNext() { Q_EMIT JumpRequested(mCurrentPage + 1); }
+void MessageHeaderWidget::JumpToBottom() { Q_EMIT JumpRequested(mNumOfPages - 1); }
 void MessageHeaderWidget::JumpTo(int index)
 {
 	//通常はmsNumOfButtons/2が現在のページを示すボタンのはずだが、
@@ -888,17 +888,17 @@ void MessageHeaderWidget::JumpTo(int index)
 		//msNumOfButtons/2==2とすると、
 		//0～1ページにいる場合、
 		//indexは単純にページ番号を表す。
-		emit JumpRequested(index);
+		Q_EMIT JumpRequested(index);
 	}
 	else if (mNumOfPages - mCurrentPage - 1 < msNumOfButtons / 2)
 	{
 		//ページの最後の方にいる場合。
-		emit JumpRequested(mNumOfPages - (msNumOfButtons - index));
+		Q_EMIT JumpRequested(mNumOfPages - (msNumOfButtons - index));
 	}
 	else
 	{
 		//ページの両端以外にいる場合、
-		emit JumpRequested(mCurrentPage + index - msNumOfButtons / 2);
+		Q_EMIT JumpRequested(mCurrentPage + index - msNumOfButtons / 2);
 	}
 }
 void MessageHeaderWidget::Clear()

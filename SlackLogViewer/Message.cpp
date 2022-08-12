@@ -161,7 +161,7 @@ void ImageFile::RequestDownload(FileDownloader* fd)
 {
 	if (HasImage())
 	{
-		emit fd->Finished();
+		Q_EMIT fd->Finished();
 		fd->deleteLater();
 		return;
 	}
@@ -169,7 +169,7 @@ void ImageFile::RequestDownload(FileDownloader* fd)
 	if (i.exists())
 	{
 		SetImage(i.readAll());
-		emit fd->Finished();
+		Q_EMIT fd->Finished();
 		fd->deleteLater();
 		return;
 	}
@@ -183,7 +183,7 @@ void ImageFile::RequestDownload(FileDownloader* fd)
 						 o.open(QIODevice::WriteOnly);
 						 o.write(f);
 						 SetImage(f);
-						 emit fd->Finished();
+						 Q_EMIT fd->Finished();
 						 fd->deleteLater();
 					 });
 	QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]
@@ -208,7 +208,7 @@ void TextFile::RequestDownload(FileDownloader* fd)
 {
 	if (HasText())
 	{
-		emit fd->Finished();
+		Q_EMIT fd->Finished();
 		fd->deleteLater();
 		return;
 	}
@@ -222,7 +222,7 @@ void TextFile::RequestDownload(FileDownloader* fd)
 						 o.open(QIODevice::WriteOnly);
 						 o.write(f);
 						 SetText(f);
-						 emit fd->Finished();
+						 Q_EMIT fd->Finished();
 						 fd->deleteLater();
 					 });
 	QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]

@@ -25,10 +25,10 @@ public:
 	{
 		setCursor(Qt::PointingHandCursor);
 	}
-signals:
+Q_SIGNALS:
 	void clicked();
 private:
-	virtual void mousePressEvent(QMouseEvent*) override { emit clicked(); }
+	virtual void mousePressEvent(QMouseEvent*) override { Q_EMIT clicked(); }
 };
 
 class ImageWidget : public ClickableLabel
@@ -52,7 +52,7 @@ public:
 
 	DocumentWidget(const AttachedFile* file, int pwidth);
 
-signals:
+Q_SIGNALS:
 
 	void clicked(const AttachedFile*);
 
@@ -71,7 +71,7 @@ public:
 
 	ThreadWidget(Message& m, QSize threadsize);
 
-signals:
+Q_SIGNALS:
 
 	void clicked(const Message*);
 
@@ -127,14 +127,14 @@ public:
 	int GetCurrentRow();
 	int GetCurrentPage();
 
-public slots:
+public Q_SLOTS:
 
 	bool ScrollToRow(int row);
 	bool JumpToPage(int page);
 	void UpdateCurrentPage();
 	void UpdateSelection(bool b);
 
-signals:
+Q_SIGNALS:
 
 	void CurrentPageChanged(int);
 
@@ -171,12 +171,12 @@ public:
 
 	virtual int GetTrueRowCount() const;
 
-public slots:
+public Q_SLOTS:
 
 	virtual void Open(const std::vector<std::shared_ptr<Message>>* m);
 	void Close();
 
-signals:
+Q_SIGNALS:
 
 	//本当は引数は最初の一つだけで十分だが、dataChangedに繋ぐのでそちらの分だけ用意しておく。
 	void ImageDownloadFinished(const QModelIndex& index1, const QModelIndex& index2, const QVector<int>&);
@@ -210,11 +210,11 @@ public:
 
 	MessageListView* GetMessageListView() { return mListView; }
 
-signals:
+Q_SIGNALS:
 
 	void copyAvailable(bool b);
 
-public slots:
+public Q_SLOTS:
 
 	virtual void enterEvent(QEvent* evt) override;
 	virtual void leaveEvent(QEvent* evt) override;

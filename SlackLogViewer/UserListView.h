@@ -12,7 +12,7 @@ public:
 
 	UserProfileWidget();
 
-public slots:
+public Q_SLOTS:
 
 	void UpdateUserProfile(const User& user);
 

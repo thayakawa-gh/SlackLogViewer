@@ -10,7 +10,7 @@ public:
 
 	void Close();
 
-public slots:
+public Q_SLOTS:
 
 	bool ScrollToRow(int row);
 
@@ -35,7 +35,7 @@ public:
 	bool IsEmpty() const { return mParentMessage == nullptr; }
 	int GetChannelIndex() const { return mParentMessage->GetChannel(); }
 
-public slots:
+public Q_SLOTS:
 
 	void Open(const Message* parent, const std::vector<std::shared_ptr<Message>>* replies);
 	void Close();

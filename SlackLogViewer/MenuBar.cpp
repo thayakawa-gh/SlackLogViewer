@@ -309,7 +309,7 @@ void SearchBox::ExecuteSearch()
 	const QString& str = this->text();
 	if (str.isEmpty()) return;
 	mPopup->HidePopup();
-	emit SearchRequested(str, mPopup->GetSearchMode());
+	Q_EMIT SearchRequested(str, mPopup->GetSearchMode());
 }
 
 
