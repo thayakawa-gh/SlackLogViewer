@@ -60,7 +60,13 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE QT_NO_KEYWORDS)
 target_link_libraries(
     ${PROJECT_NAME}
     PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Concurrent Qt5::Network Qt5::WebEngineWidgets QuaZip::QuaZip)
-    
+
+if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+target_link_libraries(
+    ${PROJECT_NAME}
+    PRIVATE -static-libstdc++ -static-libgcc)
+endif()
+
 install(TARGETS ${PROJECT_NAME}
         EXPORT ${MY_PACKAGE_NAME}Targets
         BUNDLE DESTINATION ./
@@ -88,6 +94,18 @@ if(TBB_FOUND)
 endif()
 
 deploy_qt(${PROJECT_NAME})
+
+if(APPLE)
+    find_program(DEPLOYQT NAMES macdeployqt HINTS "${_qt_bin_path}")
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${DEPLOYQT} ${PROJECT_NAME}.app $<IF:$<CONFIG:Debug>,-use-debug-lib,>)
+    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${PROJECT_NAME}.app $<IF:$<CONFIG:Debug>,-use-debug-lib,>")
+
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND plutil -replace NSHighResolutionCapable -bool true ${PROJECT_NAME}.app/Contents/Info.plist)
+endif()
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPER_BUILD_TYPE)
 
