@@ -63,6 +63,7 @@ target_link_libraries(
     
 install(TARGETS ${PROJECT_NAME}
         EXPORT ${MY_PACKAGE_NAME}Targets
+        BUNDLE DESTINATION ./
         RUNTIME DESTINATION ./)
 
 include(DeployQt.cmake)
@@ -83,7 +84,7 @@ install(DIRECTORY DESTINATION "Cache")
 # std::execution::par might require TBB
 find_package(TBB)
 if(TBB_FOUND)
-    target_link_libraries(${PROJECT_NAME} PRIVATE tbb)
+    target_link_libraries(${PROJECT_NAME} PRIVATE TBB::tbb)
 endif()
 
 deploy_qt(${PROJECT_NAME})
