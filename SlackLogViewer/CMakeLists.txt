@@ -96,15 +96,9 @@ endif()
 deploy_qt(${PROJECT_NAME})
 
 if(APPLE)
-    find_program(DEPLOYQT NAMES macdeployqt HINTS "${_qt_bin_path}")
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${DEPLOYQT} ${PROJECT_NAME}.app $<IF:$<CONFIG:Debug>,-use-debug-lib,>)
-    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${PROJECT_NAME}.app $<IF:$<CONFIG:Debug>,-use-debug-lib,>")
-
-    add_custom_command(
-        TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND plutil -replace NSHighResolutionCapable -bool true ${PROJECT_NAME}.app/Contents/Info.plist)
+        COMMAND plutil -replace NSHighResolutionCapable -bool true ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents/Info.plist)
 endif()
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPER_BUILD_TYPE)
