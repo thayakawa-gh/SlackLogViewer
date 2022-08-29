@@ -6,6 +6,11 @@
 #include <QGuiApplication>
 #include <QScreen>
 
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#include <unistd.h>
+#endif
+
 int main(int argc, char *argv[])
 {
 	gSettings = std::make_unique<QSettings>("settings.ini", QSettings::IniFormat);
@@ -19,6 +24,16 @@ int main(int argc, char *argv[])
 	a.setFont(font);
 	gDPI = std::make_unique<double>(QGuiApplication::primaryScreen()->physicalDotsPerInch());
 
+#ifdef __APPLE__
+	std::string path;
+	uint32_t bufsize=0;
+	_NSGetExecutablePath((char*)path.c_str(), &bufsize);
+	path.resize(bufsize+1);
+	_NSGetExecutablePath((char*)path.c_str(), &bufsize);
+	auto idx=path.rfind('/');
+	path=path.substr(0,idx);
+	chdir(path.c_str());
+#endif
 
 	MainWindow::Construct();
 	MainWindow::Get()->show();

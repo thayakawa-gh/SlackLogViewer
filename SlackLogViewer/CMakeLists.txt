@@ -74,17 +74,23 @@ install(TARGETS ${PROJECT_NAME}
 
 include(DeployQt.cmake)
 
+if(APPLE)
+set(RESOURCE_DIR "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents/MacOS")
+else()
+set(RESOURCE_DIR "${CMAKE_BINARY_DIR}")
+endif()
+
 add_custom_command(
     TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_CURRENT_SOURCE_DIR}/Resources/
-    ${CMAKE_BINARY_DIR}/Resources/)
+    ${RESOURCE_DIR}/Resources/)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Resources/
 		DESTINATION Resources)
 add_custom_command(
     TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory
-    ${CMAKE_BINARY_DIR}/Cache/)
+    ${RESOURCE_DIR}/Cache/)
 install(DIRECTORY DESTINATION "Cache")
 
 # std::execution::par might require TBB
