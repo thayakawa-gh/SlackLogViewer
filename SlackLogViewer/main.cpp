@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 	QDir tmp = QDir::temp();
 	if (!tmp.exists("SlackLogViewer")) tmp.mkdir("SlackLogViewer");
 	tmp.cd("SlackLogViewer");
-	QString settingdir = tmp.absoluteDir() + "/";
+	QString settingdir = tmp.absolutePath() + "/";
 	if (!tmp.exists("Cache")) tmp.mkdir("Cache");
 	tmp.cd("Cache");
 	gCacheDir = tmp.absolutePath() + "/";
