@@ -118,7 +118,7 @@ SearchBoxPopup::SearchBoxPopup(SearchBox* parent)
 			mCase = new QPushButton();
 			{
 				mCase->setCheckable(true);
-				mCase->setIcon(QIcon("Resources/upper_lower_case.png"));
+				mCase->setIcon(QIcon(ResourcePath("upper_lower_case.png")));
 				mCase->setToolTip("Case sensitive");
 				mCase->setFocusPolicy(Qt::NoFocus);
 				mCase->setStyleSheet("QPushButton:checked { color: white; background-color: lightblue; } QPushButton { border-radius: 0px; }");
@@ -129,7 +129,7 @@ SearchBoxPopup::SearchBoxPopup(SearchBox* parent)
 			mRegex = new QPushButton();
 			{
 				mRegex->setCheckable(true);
-				mRegex->setIcon(QIcon("Resources/regex.png"));
+				mRegex->setIcon(QIcon(ResourcePath("regex.png")));
 				mRegex->setToolTip("Regular expression");
 				mRegex->setFocusPolicy(Qt::NoFocus);
 				mRegex->setStyleSheet("QPushButton:checked { color: white; background-color: lightblue; } QPushButton { border-radius: 0px; }");
@@ -190,7 +190,7 @@ SearchBoxPopup::SearchBoxPopup(SearchBox* parent)
 			/*QToolButton* calendar = new QToolButton();
 			calendar->setCursor(Qt::PointingHandCursor);
 			calendar->setText("Calendar");
-			//calendar->setIcon(QIcon("Resources/cache.svg"));
+			//calendar->setIcon(QIcon(ResourcePath("cache.svg")));
 			calendar->setToolTip("Cache");
 			calendar->setPopupMode(QToolButton::InstantPopup);
 			calendar->setStyleSheet("QToolButton::menu-indicator { image: none; }");
@@ -322,7 +322,7 @@ MenuBar::MenuBar(QMenu* menu, QWidget* parent)
 	{
 		QToolButton* menubutton = new QToolButton();
 		menubutton->setCursor(Qt::PointingHandCursor);
-		menubutton->setIcon(QIcon("Resources/menu.png"));
+		menubutton->setIcon(QIcon(ResourcePath("menu.png")));
 		menubutton->setStyleSheet("QToolButton::menu-indicator { image: none; }");
 		menubutton->setPopupMode(QToolButton::InstantPopup);
 		menubutton->setMenu(menu);
@@ -336,7 +336,7 @@ MenuBar::MenuBar(QMenu* menu, QWidget* parent)
 	}
 	{
 		QPushButton* exe = new QPushButton();
-		exe->setIcon(QIcon("Resources/search.png"));
+		exe->setIcon(QIcon(ResourcePath("search.png")));
 		exe->setCursor(Qt::PointingHandCursor);
 		layout->addWidget(exe);
 		connect(exe, &QPushButton::clicked, mSearchBox, &SearchBox::ExecuteSearch);
@@ -345,7 +345,7 @@ MenuBar::MenuBar(QMenu* menu, QWidget* parent)
 	{
 		QToolButton* cachebutton = new QToolButton();
 		cachebutton->setCursor(Qt::PointingHandCursor);
-		cachebutton->setIcon(QIcon("Resources/cache.svg"));
+		cachebutton->setIcon(QIcon(ResourcePath("cache.svg")));
 		cachebutton->setToolTip("Cache");
 		cachebutton->setPopupMode(QToolButton::InstantPopup);
 		cachebutton->setStyleSheet("QToolButton::menu-indicator { image: none; }");

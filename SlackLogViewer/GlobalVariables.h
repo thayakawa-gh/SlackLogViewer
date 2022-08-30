@@ -11,6 +11,8 @@
 #include <QFont>
 #include <QTextCodec>
 
+class QDir;
+
 enum Stage
 {
 	RELEASE = 0, RELEASECANDIDATE = -1, BETA = -2, ALPHA = -3, PREALPHA = -4,
@@ -112,12 +114,22 @@ private:
 
 void Construct(QSettings& s);
 
+QString ResourcePath(const char* filename);
+QString CachePath(const char* type, const char* filename);
+QString CachePath(const char* type, const QString& filename);
+QString CachePath(const QString& type, const char* filename);
+QString CachePath(const QString& type, const QString& filename);
+QString CachePath(const char* type);
+QString CachePath(const QString& type);
+
 extern std::unique_ptr<User> gEmptyUser;
 extern std::unique_ptr<QImage> gTempImage;
 extern std::unique_ptr<QImage> gDocIcon;
 extern std::unique_ptr<QSettings> gSettings;
 extern std::unique_ptr<double> gDPI;
 extern QString gWorkspace;//workspaceと言いつつ、ログファイルのフォルダ名のこと。jsonファイル中にワークスペース名があればよかったのだが。
+extern QString gResourceDir;
+extern QString gCacheDir;
 extern QMap<QString, User> gUsers;
 extern QVector<Channel> gChannelVector;
 extern QStringList gHiddenChannels;

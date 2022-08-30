@@ -244,12 +244,44 @@ void Construct(QSettings& s)
 
 }
 
+QString ResourcePath(const char* filename)
+{
+	return gResourceDir + filename;
+}
+QString CachePath(const char* type, const char* filename)
+{
+	return gCacheDir + gWorkspace + "/" + type + "/" + filename;
+}
+QString CachePath(const char* type, const QString& filename)
+{
+	return gCacheDir + gWorkspace + "/" + type + "/" + filename;
+}
+QString CachePath(const QString& type, const char* filename)
+{
+	return gCacheDir + gWorkspace + "/" + type + "/" + filename;
+}
+QString CachePath(const QString& type, const QString& filename)
+{
+	return gCacheDir + gWorkspace + "/" + type + "/" + filename;
+}
+QString CachePath(const char* type)
+{
+	return gCacheDir + gWorkspace + "/" + type;
+}
+QString CachePath(const QString& type)
+{
+	return gCacheDir + gWorkspace + "/" + type;
+}
+
+
 std::unique_ptr<User> gEmptyUser = nullptr;
 std::unique_ptr<QImage> gTempImage = nullptr;
 std::unique_ptr<QImage> gDocIcon = nullptr;
 std::unique_ptr<QSettings> gSettings = nullptr;
 std::unique_ptr<double> gDPI = nullptr;
 QString gWorkspace = QString();
+QString gResourceDir = QString();
+QString gCacheDir = QString();
 QMap<QString, User> gUsers = QMap<QString, User>();
 QVector<Channel> gChannelVector = QVector<Channel>();
 QStringList gHiddenChannels = QStringList();

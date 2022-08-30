@@ -108,7 +108,7 @@ SearchResultListView::SearchResultListView()
 		QPushButton* close = new QPushButton();
 		close->setCursor(Qt::PointingHandCursor);
 		close->setStyleSheet("border: 0px;");
-		QPixmap icon("Resources/batsu.png");
+		QPixmap icon(ResourcePath("batsu.png"));
 		close->setIcon(icon);
 		connect(close, &QPushButton::clicked, this, &SearchResultListView::Closed);
 		bar->addWidget(close);

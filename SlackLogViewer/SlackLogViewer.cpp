@@ -30,8 +30,8 @@
 SlackLogViewer::SlackLogViewer(QWidget* parent)
 	: QMainWindow(parent), mImageView(nullptr), mTextView(nullptr), mSearchView(nullptr)
 {
-	gTempImage = std::make_unique<QImage>("Resources/downloading.png");
-	gDocIcon = std::make_unique<QImage>("Resources/document.png");
+	gTempImage = std::make_unique<QImage>(ResourcePath("downloading.png"));
+	gDocIcon = std::make_unique<QImage>(ResourcePath("document.png"));
 
 	QWidget* central = new QWidget(this);
 	QVBoxLayout* mainlayout = new QVBoxLayout();
@@ -257,7 +257,7 @@ void SlackLogViewer::LoadUsers()
 {
 	gUsers.clear();
 	//emptyuserも初期化しておく。
-	QFile batsuicon("Resources/batsu.png");
+	QFile batsuicon(ResourcePath("batsu.png"));
 	if (batsuicon.exists())
 	{
 		batsuicon.open(QIODevice::ReadOnly);
@@ -272,7 +272,7 @@ void SlackLogViewer::LoadUsers()
 		User user(o);
 		auto it = gUsers.insert(user.GetID(), std::move(user));
 
-		QFile icon("Cache/" + gWorkspace + "/Icon/" + user.GetID());
+		QFile icon(CachePath("Icon", user.GetID()));
 		if (icon.exists())
 		{
 			icon.open(QIODevice::ReadOnly);
@@ -286,7 +286,7 @@ void SlackLogViewer::LoadUsers()
 			QObject::connect(fd, &FileDownloader::Downloaded, [fd, puser = &it.value()]()
 			{
 				QByteArray image = fd->GetDownloadedData();
-				QFile o("Cache/" + gWorkspace + "/Icon/" + puser->GetID());
+				QFile o(CachePath("Icon", puser->GetID()));
 				o.open(QIODevice::WriteOnly);
 				o.write(image);
 				puser->SetUserIcon(fd->GetDownloadedData());
@@ -294,7 +294,7 @@ void SlackLogViewer::LoadUsers()
 			});
 			QObject::connect(fd, &FileDownloader::DownloadFailed, [fd, puser = &it.value()]()
 			{
-				QFile icon("Resources/batsu.png");
+				QFile icon(ResourcePath("batsu.png"));
 				icon.open(QIODevice::ReadOnly);
 				puser->SetUserIcon(icon.readAll());
 				fd->deleteLater();
@@ -422,42 +422,42 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 	//cache用フォルダの作成
 	{
 		QDir dir;
-		if (!dir.exists("Cache/" + gWorkspace) && !dir.mkdir("Cache/" + gWorkspace))
+		if (!dir.exists(gCacheDir + gWorkspace) && !dir.mkdir(gCacheDir + gWorkspace))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
 			m->showMessage("cannot make cache folder.");
 			return;
 		}
-		if (!dir.exists("Cache/" + gWorkspace + "/Text") && !dir.mkdir("Cache/" + gWorkspace + "/Text"))
+		if (!dir.exists(CachePath("Text")) && !dir.mkdir(CachePath("Text")))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
 			m->showMessage("cannot make cache folder.");
 			return;
 		}
-		if (!dir.exists("Cache/" + gWorkspace + "/Image") && !dir.mkdir("Cache/" + gWorkspace + "/Image"))
+		if (!dir.exists(CachePath("Image")) && !dir.mkdir(CachePath("Image")))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
 			m->showMessage("cannot make cache folder.");
 			return;
 		}
-		if (!dir.exists("Cache/" + gWorkspace + "/PDF") && !dir.mkdir("Cache/" + gWorkspace + "/PDF"))
+		if (!dir.exists(CachePath("PDF")) && !dir.mkdir(CachePath("PDF")))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
 			m->showMessage("cannot make cache folder.");
 			return;
 		}
-		if (!dir.exists("Cache/" + gWorkspace + "/Others") && !dir.mkdir("Cache/" + gWorkspace + "/Others"))
+		if (!dir.exists(CachePath("Others")) && !dir.mkdir(CachePath("Others")))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
 			m->showMessage("cannot make cache folder.");
 			return;
 		}
-		if (!dir.exists("Cache/" + gWorkspace + "/Icon") && !dir.mkdir("Cache/" + gWorkspace + "/Icon"))
+		if (!dir.exists(CachePath("Icon")) && !dir.mkdir(CachePath("Icon")))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);

@@ -179,7 +179,7 @@ void ImageFile::RequestDownload(FileDownloader* fd)
 	QObject::connect(fd, &FileDownloader::Downloaded, [this, fd]()
 					 {
 						 QByteArray f = fd->GetDownloadedData();
-						 QFile o("Cache/" + gWorkspace + "/Image/" + GetID());
+						 QFile o(CachePath("Image", GetID()));
 						 o.open(QIODevice::WriteOnly);
 						 o.write(f);
 						 SetImage(f);
@@ -194,7 +194,7 @@ void ImageFile::RequestDownload(FileDownloader* fd)
 bool ImageFile::LoadImage()
 {
 	if (HasImage()) return true;
-	QFile f("Cache/" + gWorkspace + "/Image/" + GetID());
+	QFile f(CachePath("Image", GetID()));
 	if (!f.exists()) return false;
 	if (!f.open(QIODevice::ReadOnly)) return false;
 	SetImage(f.readAll());
@@ -218,7 +218,7 @@ void TextFile::RequestDownload(FileDownloader* fd)
 	QObject::connect(fd, &FileDownloader::Downloaded, [this, fd]()
 					 {
 						 QByteArray f = fd->GetDownloadedData();
-						 QFile o("Cache/" + gWorkspace + "/Image/" + GetID());
+						 QFile o(CachePath("Image", GetID()));
 						 o.open(QIODevice::WriteOnly);
 						 o.write(f);
 						 SetText(f);
