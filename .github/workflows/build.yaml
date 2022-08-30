@@ -1,0 +1,110 @@
+name: Build
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+          - os: macos-10.15
+          - os: windows-2019
+
+    steps:
+    - uses: actions/checkout@v2
+    # - uses: microsoft/setup-msbuild@v1.1
+    #   if: ${{ matrix.os == 'windows-2019' }}
+    - name: Build (Ubuntu)
+      if: ${{ matrix.os == 'ubuntu-22.04'}}
+      run: |
+        sudo apt update
+        sudo apt install -y qtbase5-dev qtwebengine5-dev libtbb-dev
+        git clone https://github.com/stachenov/quazip.git
+        git -C quazip checkout v1.3
+        mkdir -p quazip/build
+        pushd quazip/build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        make -j4
+        sudo make install
+        popd
+
+        mkdir -p SlackLogViewer/build
+        cd SlackLogViewer/build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        make -j4
+        mkdir SlackLogViewer_ubuntu
+        cp -a SlackLogViewer Cache Resources SlackLogViewer_ubuntu/
+        touch SlackLogViewer_ubuntu/Cache/.keep
+    - name: Build (macOS)
+      if: ${{ matrix.os == 'macos-10.15' }}
+      run: |
+        brew install coreutils qt@5 tbb
+        wget https://raw.githubusercontent.com/Homebrew/homebrew-core/e77259102655b0390273bdc01a08c9eb61b934ca/Formula/quazip.rb
+        brew install ./quazip.rb
+        GCC_VERSION=$(basename $(grealpath $(brew --prefix gcc)))
+        GCC_MAJOR_VERSION=${GCC_VERSION%%.*}
+
+        mkdir -p SlackLogViewer/build
+        cd SlackLogViewer/build
+        MACOSX_DEPLOYMENT_TARGET=10.14 cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5) -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-${GCC_MAJOR_VERSION} -DCMAKE_C_COMPILER=gcc-${GCC_MAJOR_VERSION}
+        make -j4
+        tar -c SlackLogViewer.app Cache Resources | xz -6 > SlackLogViewer_macos.tar.xz
+    - name: Build (Win)
+      if: ${{ matrix.os == 'windows-2019' }}
+      shell: bash
+      run: |
+        # I think setup-msbuild does not work...
+        # find "/c/Program Files (x86)/Microsoft Visual Studio/2019" -name "MSBuild.exe"
+        # MSBUILD_PATH="/c/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin/amd64"
+        MSBUILD_PATH="/c/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin"
+        MSBUILD_PATH_DRV="C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin"
+        # export PATH="${PATH}:${MSBUILD_PATH}"
+        # echo "${PATH}"
+
+        # simulate qt5-default choco partly (except COMPILER part)
+        choco install aqt
+        COMPILER=msvc2019_64
+        QtSDKRoot="C:/Qt"
+        QtSDKVer="5.15.2"
+        QtSDK="${QtSDKRoot}/${QtSDKVer}/${COMPILER}"
+        aqt install-qt --outputdir $QtSDKRoot windows desktop ${QtSDKVer} win64_${COMPILER} -m qtwebengine
+        git clone https://github.com/cielavenir/quazip.git
+        git -C quazip checkout v1.3_useQtXZlibInConfigCmake
+        mkdir -p quazip/build
+        pushd quazip/build
+        cmake .. -G "Visual Studio 16 2019" -A x64 "-DCMAKE_PREFIX_PATH=${QtSDK}" -DCMAKE_BUILD_TYPE=Release -DQUAZIP_USE_QT_ZLIB=ON
+        "${MSBUILD_PATH_DRV}/MSBuild.exe" INSTALL.vcxproj -t:build -p:configuration=Release -p:platform=x64 -maxcpucount
+        popd
+
+        mkdir -p SlackLogViewer/build
+        cd SlackLogViewer/build
+        cmake .. -G "Visual Studio 16 2019" -A x64 "-DCMAKE_PREFIX_PATH=${QtSDK}" "-DQuaZip-Qt5_DIR=C:/Program Files/QuaZip/lib/cmake/QuaZip-Qt5-1.3" -DCMAKE_BUILD_TYPE=Release
+        "${MSBUILD_PATH_DRV}/MSBuild.exe" SlackLogViewer.sln -t:build -p:configuration=Release -p:platform=x64 -maxcpucount
+        # find
+        mkdir SlackLogViewer_win
+        # TODO: think of better openssl preparation, which is qt binary dependency and no source is required
+        curl -O https://mirror.firedaemon.com/OpenSSL/openssl-1.1.1q.zip
+        7z e openssl-1.1.1q.zip openssl-1.1/x64/bin/libcrypto-1_1-x64.dll openssl-1.1/x64/bin/libssl-1_1-x64.dll
+        cp -a libcrypto-1_1-x64.dll libssl-1_1-x64.dll quazip1-qt5.dll Release/* Cache Resources SlackLogViewer_win/
+        touch SlackLogViewer_win/Cache/.keep
+    - name: Upload (Ubuntu)
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: ubuntu
+        path: SlackLogViewer/build/SlackLogViewer_ubuntu
+    - name: Upload (macOS)
+      if: ${{ matrix.os == 'macos-10.15' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: macos
+        path: SlackLogViewer/build/SlackLogViewer_macos.tar.xz
+    - name: Upload (Win)
+      if: ${{ matrix.os == 'windows-2019' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: win
+        path: SlackLogViewer/build/SlackLogViewer_win
