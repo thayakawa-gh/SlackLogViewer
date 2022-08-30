@@ -36,8 +36,7 @@ jobs:
         cmake .. -DCMAKE_BUILD_TYPE=Release
         make -j4
         mkdir SlackLogViewer_ubuntu
-        cp -a SlackLogViewer Cache Resources SlackLogViewer_ubuntu/
-        touch SlackLogViewer_ubuntu/Cache/.keep
+        cp -a SlackLogViewer Resources SlackLogViewer_ubuntu/
     - name: Build (macOS)
       if: ${{ matrix.os == 'macos-10.15' }}
       run: |
@@ -51,7 +50,7 @@ jobs:
         cd SlackLogViewer/build
         MACOSX_DEPLOYMENT_TARGET=10.14 cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5) -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-${GCC_MAJOR_VERSION} -DCMAKE_C_COMPILER=gcc-${GCC_MAJOR_VERSION}
         make -j4
-        tar -c SlackLogViewer.app Cache Resources | xz -6 > SlackLogViewer_macos.tar.xz
+        tar -c SlackLogViewer.app Resources | xz -6 > SlackLogViewer_macos.tar.xz
     - name: Build (Win)
       if: ${{ matrix.os == 'windows-2019' }}
       shell: bash
@@ -88,8 +87,7 @@ jobs:
         # TODO: think of better openssl preparation, which is qt binary dependency and no source is required
         curl -O https://mirror.firedaemon.com/OpenSSL/openssl-1.1.1q.zip
         7z e openssl-1.1.1q.zip openssl-1.1/x64/bin/libcrypto-1_1-x64.dll openssl-1.1/x64/bin/libssl-1_1-x64.dll
-        cp -a libcrypto-1_1-x64.dll libssl-1_1-x64.dll quazip1-qt5.dll Release/* Cache Resources SlackLogViewer_win/
-        touch SlackLogViewer_win/Cache/.keep
+        cp -a libcrypto-1_1-x64.dll libssl-1_1-x64.dll quazip1-qt5.dll Release/* Resources SlackLogViewer_win/
     - name: Upload (Ubuntu)
       if: ${{ matrix.os == 'ubuntu-22.04' }}
       uses: actions/upload-artifact@v2
