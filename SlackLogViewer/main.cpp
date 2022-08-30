@@ -9,6 +9,10 @@
 
 int main(int argc, char *argv[])
 {
+	QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+	QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+	QApplication a(argc, argv);
+
 	QDir exedir = QCoreApplication::applicationDirPath();
 #ifdef __APPLE__
 	exedir.cdUp();
@@ -32,11 +36,6 @@ int main(int argc, char *argv[])
 	gSettings->setIniCodec(QTextCodec::codecForName("UTF-8"));
 	Construct(*gSettings);
 
-	QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-	QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-
-
-	QApplication a(argc, argv);
 	QFont font(gSettings->value("Font/Family").toString(), gSettings->value("Font/Size").toInt());
 	a.setFont(font);
 	gDPI = std::make_unique<double>(QGuiApplication::primaryScreen()->physicalDotsPerInch());
