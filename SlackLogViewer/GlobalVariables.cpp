@@ -226,7 +226,52 @@ void Channel::SetChannelInfo(const QString& id, const QString& name)
 	mName = name;
 }
 
-void Construct(QSettings& s)
+QString GetCacheDirFromEnv()
+{
+#ifdef _WIN32
+	return qgetenv("LocalAppData");
+#elif defined __APPLE__
+	QString dir = qgetenv("HOME");
+	if (dir.isEmpty()) return "";
+	return dir + "/Library/Caches";
+#elif defined __linux__
+	QString dir = qgetenv("XDG_CACHE_HOME");
+	if (!dir.isEmpty()) return dir;
+	dir = getenv("HOME");
+	if (!dir.isEmpty()) return dir + "/.cache";
+	return "";
+#endif
+}
+QString GetCacheDirBundled(const QDir& exedir)
+{
+	QDir tmp = exedir;
+	QString tmpstr = tmp.absolutePath();
+#ifdef __APPLE__
+	tmp.cdUp();
+	tmp.cd("Resources");
+	if (!tmp.exists("Cache")) tmp.mkdir("Cache");
+	tmp.cd("Cache");
+	return tmp.absolutePath();
+#else
+	if (!tmp.exists("Cache")) tmp.mkdir("Cache");
+	tmp.cd("Cache");
+	return tmp.absolutePath();
+#endif
+}
+QString GetDefaultCacheDir(const QDir& exedir)
+{
+	QString env = GetCacheDirFromEnv();
+	if (!env.isEmpty())
+	{
+		//環境変数が見つかった場合は、その場所にSlackLogViewer_cacheディレクトリを作り、そのパスを返す。
+		QDir envcache = env;
+		if (!envcache.exists("SlackLogViewer_cache")) envcache.mkdir("SlackLogViewer_cache");
+		return env + "/SlackLogViewer_cache";
+	}
+	return GetCacheDirBundled(exedir);
+}
+
+void Construct(QSettings& s, const QDir& exedir)
 {
 	if (!s.contains("Font/Size")) s.setValue("Font/Size", 9);
 	if (!s.contains("Font/Family")) s.setValue("Font/Family", "Meiryo");
@@ -241,7 +286,7 @@ void Construct(QSettings& s)
 	if (!s.contains("Search/Regex")) s.setValue("Search/Regex", false);
 	if (!s.contains("Search/Range")) s.setValue("Search/Range", 0);
 	if (!s.contains("Search/Filter")) s.setValue("Search/Filter", QVariantList{ true, false, false, false });
-
+	if (!s.contains("Cache/Location")) s.setValue("Cache/Location", GetDefaultCacheDir(exedir));
 }
 
 QString ResourcePath(const char* filename)

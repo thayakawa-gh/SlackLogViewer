@@ -14,32 +14,23 @@ int main(int argc, char *argv[])
 	QApplication a(argc, argv);
 
 	QDir exedir = QCoreApplication::applicationDirPath();
-#ifdef __APPLE__
-	exedir.cdUp();
-	gResourceDir = exedir.absolutePath() + "/Resources/";
-	QDir tmp = QDir::temp();
-	if (!tmp.exists("SlackLogViewer")) tmp.mkdir("SlackLogViewer");
-	tmp.cd("SlackLogViewer");
-	QString settingdir = tmp.absolutePath() + "/";
-	if (!tmp.exists("Cache")) tmp.mkdir("Cache");
-	tmp.cd("Cache");
-	gCacheDir = tmp.absolutePath() + "/";
-#else
 	QString settingdir = exedir.absolutePath() + "/";
-	gResourceDir = exedir.absolutePath() + "/Resources/";
-	if (!exedir.exists("Cache")) exedir.mkdir("Cache");
-	exedir.cd("Cache");
-	gCacheDir = exedir.absolutePath() + "/";
-#endif
-
 	gSettings = std::make_unique<QSettings>(settingdir + "settings.ini", QSettings::IniFormat);
 	gSettings->setIniCodec(QTextCodec::codecForName("UTF-8"));
-	Construct(*gSettings);
+	Construct(*gSettings, exedir);
+
+#ifdef __APPLE__
+	QDir tmp = exedir;
+	tmp.cdUp();
+	gResourceDir = tmp.absolutePath() + "/Resources/";
+#else
+	gResourceDir = exedir.absolutePath() + "/Resources/";
+#endif
+	gCacheDir = gSettings->value("Cache/Location").toString() + "/";
 
 	QFont font(gSettings->value("Font/Family").toString(), gSettings->value("Font/Size").toInt());
 	a.setFont(font);
 	gDPI = std::make_unique<double>(QGuiApplication::primaryScreen()->physicalDotsPerInch());
-
 
 	MainWindow::Construct();
 	MainWindow::Get()->show();

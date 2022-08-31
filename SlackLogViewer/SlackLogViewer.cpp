@@ -422,46 +422,16 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 	//cache用フォルダの作成
 	{
 		QDir dir;
-		if (!dir.exists(gCacheDir + gWorkspace) && !dir.mkdir(gCacheDir + gWorkspace))
+		if ((!dir.exists(gCacheDir + gWorkspace) && !dir.mkdir(gCacheDir + gWorkspace)) ||
+			(!dir.exists(CachePath("Text")) && !dir.mkdir(CachePath("Text"))) ||
+			(!dir.exists(CachePath("Image")) && !dir.mkdir(CachePath("Image"))) ||
+			(!dir.exists(CachePath("PDF")) && !dir.mkdir(CachePath("PDF"))) ||
+			(!dir.exists(CachePath("Others")) && !dir.mkdir(CachePath("Others"))) ||
+			(!dir.exists(CachePath("Icon")) && !dir.mkdir(CachePath("Icon"))))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
-			m->showMessage("cannot make cache folder.");
-			return;
-		}
-		if (!dir.exists(CachePath("Text")) && !dir.mkdir(CachePath("Text")))
-		{
-			QErrorMessage* m = new QErrorMessage(this);
-			m->setAttribute(Qt::WA_DeleteOnClose);
-			m->showMessage("cannot make cache folder.");
-			return;
-		}
-		if (!dir.exists(CachePath("Image")) && !dir.mkdir(CachePath("Image")))
-		{
-			QErrorMessage* m = new QErrorMessage(this);
-			m->setAttribute(Qt::WA_DeleteOnClose);
-			m->showMessage("cannot make cache folder.");
-			return;
-		}
-		if (!dir.exists(CachePath("PDF")) && !dir.mkdir(CachePath("PDF")))
-		{
-			QErrorMessage* m = new QErrorMessage(this);
-			m->setAttribute(Qt::WA_DeleteOnClose);
-			m->showMessage("cannot make cache folder.");
-			return;
-		}
-		if (!dir.exists(CachePath("Others")) && !dir.mkdir(CachePath("Others")))
-		{
-			QErrorMessage* m = new QErrorMessage(this);
-			m->setAttribute(Qt::WA_DeleteOnClose);
-			m->showMessage("cannot make cache folder.");
-			return;
-		}
-		if (!dir.exists(CachePath("Icon")) && !dir.mkdir(CachePath("Icon")))
-		{
-			QErrorMessage* m = new QErrorMessage(this);
-			m->setAttribute(Qt::WA_DeleteOnClose);
-			m->showMessage("cannot make cache folder.");
+			m->showMessage("cannot make cache folder at " + gCacheDir);
 			return;
 		}
 	}

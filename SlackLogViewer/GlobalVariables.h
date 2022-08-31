@@ -112,7 +112,7 @@ private:
 	QString mName;
 };
 
-void Construct(QSettings& s);
+void Construct(QSettings& s, const QDir& exedir);
 
 QString ResourcePath(const char* filename);
 QString CachePath(const char* type, const char* filename);
