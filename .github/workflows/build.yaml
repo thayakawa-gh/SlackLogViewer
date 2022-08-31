@@ -71,8 +71,8 @@ jobs:
         QtSDKVer="5.15.2"
         QtSDK="${QtSDKRoot}/${QtSDKVer}/${COMPILER}"
         aqt install-qt --outputdir $QtSDKRoot windows desktop ${QtSDKVer} win64_${COMPILER} -m qtwebengine
-        git clone https://github.com/cielavenir/quazip.git
-        git -C quazip checkout v1.3_useQtXZlibInConfigCmake
+        git clone https://github.com/stachenov/quazip.git
+        git -C quazip checkout 5ff81b434273226087df077d41a727a12c5c795e  # v1.3_useQtXZlibInConfigCmake
         mkdir -p quazip/build
         pushd quazip/build
         cmake .. -G "Visual Studio 16 2019" -A x64 "-DCMAKE_PREFIX_PATH=${QtSDK}" -DCMAKE_BUILD_TYPE=Release -DQUAZIP_USE_QT_ZLIB=ON
