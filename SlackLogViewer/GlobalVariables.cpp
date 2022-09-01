@@ -260,7 +260,6 @@ QString GetCacheDirFromEnv()
 QString GetCacheDirBundled(const QDir& exedir)
 {
 	QDir tmp = exedir;
-	QString tmpstr = tmp.absolutePath();
 #ifdef __APPLE__
 	tmp.cdUp();
 	tmp.cd("Resources");
