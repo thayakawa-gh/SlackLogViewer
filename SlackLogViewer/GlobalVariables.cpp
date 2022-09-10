@@ -274,24 +274,38 @@ std::pair<Channel::Type, int> RowToIndex(int row)
 
 QString GetCacheDirFromEnv()
 {
+	QString tmp;
 #ifdef _WIN32
-	return qgetenv("LocalAppData");
+	QString dir = qgetenv("LocalAppData");
+	if (!dir.isEmpty())
+	{
+		dir.replace("\\", "/");
+		tmp = dir;
+	}
 #elif defined __APPLE__
 	QString dir = qgetenv("HOME");
-	if (dir.isEmpty()) return "";
-	return dir + "/Library/Caches";
+	if (!dir.isEmpty()) tmp = dir + "/Library/Caches";
 #elif defined __linux__
 	QString dir = qgetenv("XDG_CACHE_HOME");
-	if (!dir.isEmpty()) return dir;
-	dir = getenv("HOME");
-	if (!dir.isEmpty()) return dir + "/.cache";
-	return "";
+	if (!dir.isEmpty()) tmp = dir;
+	else
+	{
+		dir = getenv("HOME");
+		if (!dir.isEmpty()) tmp = dir + "/.cache";
+	}
 #endif
+
+	//環境変数が見つからなかった場合は、そのまま空文字列を返す。
+	if (tmp.isEmpty()) return "";
+
+	//環境変数が見つかった場合は、その場所にSlackLogViewer_cacheディレクトリを作り、そのパスを返す。
+	QDir envcache = tmp;
+	if (!envcache.exists("SlackLogViewer_cache")) envcache.mkdir("SlackLogViewer_cache");
+	return tmp + "/SlackLogViewer_cache";
 }
 QString GetCacheDirBundled(const QDir& exedir)
 {
 	QDir tmp = exedir;
-	QString tmpstr = tmp.absolutePath();
 #ifdef __APPLE__
 	tmp.cdUp();
 	tmp.cd("Resources");
@@ -307,13 +321,7 @@ QString GetCacheDirBundled(const QDir& exedir)
 QString GetDefaultCacheDir(const QDir& exedir)
 {
 	QString env = GetCacheDirFromEnv();
-	if (!env.isEmpty())
-	{
-		//環境変数が見つかった場合は、その場所にSlackLogViewer_cacheディレクトリを作り、そのパスを返す。
-		QDir envcache = env;
-		if (!envcache.exists("SlackLogViewer_cache")) envcache.mkdir("SlackLogViewer_cache");
-		return env + "/SlackLogViewer_cache";
-	}
+	if (!env.isEmpty()) return env;
 	return GetCacheDirBundled(exedir);
 }
 

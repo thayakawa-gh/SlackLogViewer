@@ -43,12 +43,10 @@ jobs:
         brew install coreutils qt@5 tbb
         wget https://raw.githubusercontent.com/Homebrew/homebrew-core/e77259102655b0390273bdc01a08c9eb61b934ca/Formula/quazip.rb
         brew install ./quazip.rb
-        GCC_VERSION=$(basename $(grealpath $(brew --prefix gcc)))
-        GCC_MAJOR_VERSION=${GCC_VERSION%%.*}
 
         mkdir -p SlackLogViewer/build
         cd SlackLogViewer/build
-        MACOSX_DEPLOYMENT_TARGET=10.14 cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5) -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-${GCC_MAJOR_VERSION} -DCMAKE_C_COMPILER=gcc-${GCC_MAJOR_VERSION}
+        MACOSX_DEPLOYMENT_TARGET=10.14 cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5) -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-11 -DCMAKE_C_COMPILER=gcc-11
         make -j4
         tar -c SlackLogViewer.app Resources | xz -6 > SlackLogViewer_macos.tar.xz
     - name: Build (Win)
@@ -70,8 +68,8 @@ jobs:
         QtSDKVer="5.15.2"
         QtSDK="${QtSDKRoot}/${QtSDKVer}/${COMPILER}"
         aqt install-qt --outputdir $QtSDKRoot windows desktop ${QtSDKVer} win64_${COMPILER} -m qtwebengine
-        git clone https://github.com/cielavenir/quazip.git
-        git -C quazip checkout v1.3_useQtXZlibInConfigCmake
+        git clone https://github.com/stachenov/quazip.git
+        git -C quazip checkout 5ff81b434273226087df077d41a727a12c5c795e  # v1.3_useQtXZlibInConfigCmake
         mkdir -p quazip/build
         pushd quazip/build
         cmake .. -G "Visual Studio 16 2019" -A x64 "-DCMAKE_PREFIX_PATH=${QtSDK}" -DCMAKE_BUILD_TYPE=Release -DQUAZIP_USE_QT_ZLIB=ON
