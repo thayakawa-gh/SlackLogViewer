@@ -9,11 +9,11 @@ if(WIN32)
     find_program(DEPLOYQT NAMES windeployqt HINTS "${_qt_bin_path}")
     add_custom_command(
         TARGET ${PROJ_NAME} POST_BUILD
-        COMMAND ${DEPLOYQT} $<TARGET_FILE_DIR:${PROJ_NAME}>/$<TARGET_FILE_NAME:${PROJ_NAME}>
+        COMMAND ${DEPLOYQT} $<TARGET_FILE_DIR:${PROJ_NAME}>/$<TARGET_FILE_NAME:${PROJ_NAME}> -verbose=2 
             --$<IF:$<CONFIG:Debug>,debug,release> --dir "$<TARGET_FILE_DIR:${PROJ_NAME}>"
             --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime
             --no-webkit2 --no-angle --no-opengl-sw)
-    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/$<TARGET_FILE_NAME:${PROJ_NAME}> 
+    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/$<TARGET_FILE_NAME:${PROJ_NAME}> -verbose=2 
                                   --$<IF:$<CONFIG:Debug>,debug,release> --qmldir ${CMAKE_SOURCE_DIR} 
                                   --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime 
                                   --no-webkit2 --no-angle --no-opengl-sw)")

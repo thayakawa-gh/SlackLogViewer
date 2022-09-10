@@ -7,6 +7,7 @@
 #include "UserListView.h"
 #include <QHBoxLayout>
 #include <QListView>
+#include <QTreeView>
 #include <QFile>
 #include <QDir>
 #include <QUrl>
@@ -98,6 +99,10 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 	mSplitter->setStyleSheet("background-color: white;");
 	mainlayout->addWidget(mSplitter);
 	{
+		gChannelParentVector.resize((int)Channel::END_CH);
+		gChannelParentVector[(int)Channel::CHANNEL].SetChannelInfo(Channel::CHANNEL, "", "", {});
+		gChannelParentVector[(int)Channel::DIRECT_MESSAGE].SetChannelInfo(Channel::DIRECT_MESSAGE, "", "", {});
+		gChannelParentVector[(int)Channel::GROUP_MESSAGE].SetChannelInfo(Channel::GROUP_MESSAGE, "", "", {});
 		//Channel
 		QWidget* w = new QWidget();
 		QVBoxLayout* clayout = new QVBoxLayout();
@@ -115,23 +120,35 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 		header->setFixedHeight(gHeaderHeight);
 		clayout->addWidget(header);
 
-		mChannelView = new QListView();
-		ChannelListModel* model = new ChannelListModel();
+		mChannelView = new QTreeView();
+		ChannelTreeModel* model = new ChannelTreeModel();
 		mChannelView->setModel(model);
 		mChannelView->setSelectionBehavior(QAbstractItemView::SelectRows);
 		mChannelView->setSelectionMode(QAbstractItemView::SingleSelection);
 		mChannelView->setWindowFlags(Qt::FramelessWindowHint);
+		mChannelView->setHeaderHidden(true);
 		//item:selectedのフォントをboldにしようとしたが、どうも機能していないらしい。多分バグ。
 		mChannelView->setStyleSheet(
-			"QListView, QScrollBar {"
+			"QTreeView, QScrollBar {"
 			"background-color: rgb(64, 14, 64);"
 			"border: 0px;"
 			"font-size: 16px; color: rgb(176, 176, 176); }"
-			"QListView::item:selected {"
+			"QTreeView::item:selected {"
 			"color: white;"
-			//"font-weight: bold;"
-			"}");
-		connect(mChannelView, &QListView::clicked, [this](const QModelIndex& index) { SetChannel(index.row()); });
+			"font-weight: bold;"
+			"}"
+		);
+		connect(mChannelView, &QTreeView::clicked,
+				[this](const QModelIndex& index)
+				{
+					if (!index.parent().isValid()) return;
+					const Channel* ch = static_cast<const Channel*>(index.internalPointer());
+					Channel::Type type = ch->GetType();
+					if (type == Channel::CHANNEL) SetChannel(type, index.row());
+					else if (type == Channel::DIRECT_MESSAGE) SetChannel(type, index.row());
+					else if (type == Channel::GROUP_MESSAGE) SetChannel(type, index.row());
+				});
+		mChannelView->expandAll();
 		clayout->addWidget(mChannelView);
 		w->setLayout(clayout);
 		mSplitter->addWidget(w);
@@ -253,8 +270,30 @@ SlackLogViewer::SlackLogViewer(QWidget* parent)
 	mSplitter->restoreState(gSettings->value("WindowState/Splitter").toByteArray());
 }
 
-void SlackLogViewer::LoadUsers()
+void SlackLogViewer::ClearUsersAndChannels()
 {
+	//ユーザー、チャンネル、プライベートやダイレクトメッセージなど含めて全てを削除する。
+
+	//まずはCHANNEL、DIRECT、GROUP_MESSAGEのすべてを削除。
+	ChannelTreeModel* model = static_cast<ChannelTreeModel*>(mChannelView->model());
+	for (int i = 0; i < (int)Channel::END_CH; ++i)
+	{
+		QModelIndex index = model->index(i, 0, QModelIndex());
+		int count = model->rowCount(index);
+		if (count == 0) continue;
+		model->removeRows(0, model->rowCount(index), index);
+	}
+
+	for (int i = mChannelPages->count(); i > 0; i--)
+	{
+		QWidget* widget = mChannelPages->widget(0);
+		mChannelPages->removeWidget(widget);
+		widget->deleteLater();
+	}
+
+	//最後にユーザー情報の削除。
+	//channel viewのremoveRowsがgUsersへアクセスすることがあるため、
+	//channel viewよりも後に削除すること。
 	gUsers.clear();
 	//emptyuserも初期化しておく。
 	QFile batsuicon(ResourcePath("batsu.png"));
@@ -264,6 +303,10 @@ void SlackLogViewer::LoadUsers()
 		gEmptyUser = std::make_unique<User>();
 		gEmptyUser->SetUserIcon(batsuicon.readAll());
 	}
+}
+
+void SlackLogViewer::LoadUsers()
+{
 	QJsonDocument users = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "users.json");
 	const QJsonArray& arr = users.array();
 	for (const auto& u : arr)
@@ -306,40 +349,105 @@ void SlackLogViewer::LoadUsers()
 
 void SlackLogViewer::LoadChannels()
 {
-	for (int i = mChannelPages->count(); i > 0; i--)
+	//ここから新しいチャンネル情報の読み込み。
+	QJsonDocument channels = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "channels.json");
+	if (channels.isNull())
 	{
-		QWidget* widget = mChannelPages->widget(0);
-		mChannelPages->removeWidget(widget);
-		widget->deleteLater();
+		//channels.jsonの有無はこの関数の呼び出し元でチェックしているので、ここでは行わなくて良い。
+		return;
 	}
-	gChannelVector.clear();
-	QJsonDocument users = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "channels.json");
-	const QJsonArray& arr = users.array();
-	ChannelListModel* model = static_cast<ChannelListModel*>(mChannelView->model());
-	model->insertRows(0, arr.size());
-	for (int i = 0; i < arr.size(); ++i)
+	const QJsonArray& arr = channels.array();
+
+	ChannelTreeModel* model = static_cast<ChannelTreeModel*>(mChannelView->model());
+	QModelIndex index = model->index((int)Channel::CHANNEL, 0, QModelIndex());
+	model->insertRows(0, arr.size(), index);
+
+	int row = 0;
+	for (auto c : arr)
 	{
-		auto c = arr[i];
 		const QString& id = c["id"].toString();
 		const QString& name = c["name"].toString();
-		bool found = false;
-		for (const auto& n : gHiddenChannels)
+		bool is_private = (c.toObject().contains("is_private") && c["is_private"].toBool() == true);
+		const QJsonArray& arr = c["members"].toArray();
+		QVector<QString> members(arr.size());
+		for (int i = 0; i < members.size(); ++i)
 		{
-			if (name == n)
-			{
-				found = true;
-				break;
-			}
+			members[i] = arr[i].toString();
 		}
-		if (found) continue;
-		model->SetChannelInfo(i, id, name);
+		model->SetChannelInfo(row, is_private, id, name, members);
+		++row;
 	}
 
-	for (auto ch : gChannelVector)
+	for (int i = 0; i < arr.size(); ++i)
 	{
 		MessageListView* mw = new MessageListView();
 		mw->setModel(new MessageListModel(mw));
-		//auto * p  =mw->itemDelegate();
+		mw->setItemDelegate(new MessageDelegate(mw));
+		mChannelPages->addWidget(mw);
+		connect(mw, &MessageListView::CurrentPageChanged, mMessageHeader, &MessageHeaderWidget::SetCurrentPage);
+	}
+}
+void SlackLogViewer::LoadDirectMessages()
+{
+	QJsonDocument dms = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "dms.json");
+	if (dms.isNull()) return;
+	const QJsonArray& arr = dms.array();
+	ChannelTreeModel* model = static_cast<ChannelTreeModel*>(mChannelView->model());
+	QModelIndex parent = model->index((int)Channel::DIRECT_MESSAGE, 0, QModelIndex());
+	model->insertRows(0, arr.size(), parent);
+
+	int row = 0;
+	for (auto dm : arr)
+	{
+		const QString& id = dm["id"].toString();
+		const QJsonArray& arr = dm["members"].toArray();
+		QString n = gUsers.find(arr.first().toString()).value().GetName();
+		QVector<QString> members(arr.size());
+		for (int i = 0; i < members.size(); ++i)
+		{
+			members[i] = arr[i].toString();
+		}
+		model->SetDMUserInfo(row, id, n, members);
+		++row;
+	}
+
+	for (int i = 0; i < arr.size(); ++i)
+	{
+		MessageListView* mw = new MessageListView();
+		mw->setModel(new MessageListModel(mw));
+		mw->setItemDelegate(new MessageDelegate(mw));
+		mChannelPages->addWidget(mw);
+		connect(mw, &MessageListView::CurrentPageChanged, mMessageHeader, &MessageHeaderWidget::SetCurrentPage);
+	}
+}
+void SlackLogViewer::LoadGroupMessages()
+{
+	QJsonDocument dms = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "mpims.json");
+	if (dms.isNull()) return;
+	const QJsonArray& arr = dms.array();
+	ChannelTreeModel* model = static_cast<ChannelTreeModel*>(mChannelView->model());
+	QModelIndex parent = model->index((int)Channel::GROUP_MESSAGE, 0, QModelIndex());
+	model->insertRows(0, arr.size(), parent);
+
+	int row = 0;
+	for (auto gm : arr)
+	{
+		const QString& id = gm["id"].toString();
+		const QString& name = gm["name"].toString();
+		const QJsonArray& arr = gm["members"].toArray();
+		QVector<QString> members(arr.size());
+		for (int i = 0; i < members.size(); ++i)
+		{
+			members[i] = arr[i].toString();
+		}
+		model->SetGMUserInfo(row, id, name, members);
+		++row;
+	}
+
+	for (int i = 0; i < arr.size(); ++i)
+	{
+		MessageListView* mw = new MessageListView();
+		mw->setModel(new MessageListModel(mw));
 		mw->setItemDelegate(new MessageDelegate(mw));
 		mChannelPages->addWidget(mw);
 		connect(mw, &MessageListView::CurrentPageChanged, mMessageHeader, &MessageHeaderWidget::SetCurrentPage);
@@ -453,11 +561,14 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 	}
 	gSettings->setValue("History/LogFilePaths", ws);
 
-	LoadChannels();
+	ClearUsersAndChannels();
 	LoadUsers();
+	LoadChannels();
+	LoadDirectMessages();
+	LoadGroupMessages();
 	UpdateRecentFiles();
 
-	SetChannel(0);
+	SetChannel(Channel::CHANNEL, 0);
 }
 void SlackLogViewer::OpenOption()
 {
@@ -467,20 +578,27 @@ void SlackLogViewer::Exit()
 {
 	QApplication::quit();
 }
-void SlackLogViewer::SetChannel(int row)
+void SlackLogViewer::SetChannel(Channel::Type type, int index)
 {
+	int row = IndexToRow(type, index);
 	ReplyListModel* tmodel = static_cast<ReplyListModel*>(mThread->model());
-	if (!tmodel->IsEmpty() && row != tmodel->GetChannelIndex()) tmodel->Close();
+	if (!tmodel->IsEmpty() && tmodel->GetChannelIndex() != std::make_pair(type, index)) tmodel->Close();
 	MessageListView* m = static_cast<MessageListView*>(mChannelPages->widget(row));
-	const Channel& ch = gChannelVector[row];
+	const Channel& ch = [type, index]()
+	{
+		if (type == Channel::CHANNEL) return gChannelVector[index];
+		else if (type == Channel::DIRECT_MESSAGE) return gDMUserVector[index];
+		else if (type == Channel::GROUP_MESSAGE) return gGMUserVector[index];
+		else throw std::exception("invalid channel type");
+	}();
 	//setCurrentIndexはCreateより先に呼ばなければならない。
 	//でないと、MessagePagesにwidthがフィットされない状態でdelegateのsizeHintが呼ばれてしまうらしい。
 	mChannelPages->setCurrentIndex(row);
-	mChannelView->setCurrentIndex(mChannelView->model()->index(row, 0));
+	mChannelView->setCurrentIndex(mChannelView->model()->index(index, 0, mChannelView->model()->index((int)type, 0)));
 	mStack->setCurrentWidget(mChannelPages);
 	if (!m->IsConstructed())
 	{
-		m->Construct(ch.GetName());
+		m->Construct(type, index);
 	}
 	int npages = m->GetNumOfPages();
 	int page = m->GetCurrentPage();
@@ -505,10 +623,11 @@ void SlackLogViewer::SetChannel(int row)
 	}
 	mMessageHeader->Open(ch.GetName(), npages, page);
 }
-void SlackLogViewer::SetChannelAndIndex(int ch, int messagerow, int parentrow)
+void SlackLogViewer::SetChannelAndIndex(Channel::Type type, int ch, int messagerow, int parentrow)
 {
-	SetChannel(ch);
-	MessageListView* m = static_cast<MessageListView*>(mChannelPages->widget(ch));
+	SetChannel(type, ch);
+	int row = IndexToRow(type, ch);
+	MessageListView* m = static_cast<MessageListView*>(mChannelPages->widget(row));
 	if (parentrow == -1)
 	{
 		//メッセージの場合
@@ -560,12 +679,12 @@ void SlackLogViewer::OpenUserProfile(const User* u)
 }
 void SlackLogViewer::Search(const QString& key, SearchMode mode)
 {
-	int row = mChannelView->currentIndex().row();
-	if (row < 0 && mode.GetRangeMode() == SearchMode::CURRENTCH) return;
+	const ChannelTreeModel* model = static_cast<const ChannelTreeModel*>(mChannelView->model());
+	QModelIndex index = mChannelView->currentIndex();
+	auto [ch_type, ch_index] = model->GetChannelIndex(index);
+	if (ch_index < 0 && mode.GetRangeMode() == SearchMode::CURRENTCH) return;
 
-	if (mode.GetRangeMode() == SearchMode::ALLCHS) row = -1;
-
-	size_t n = mSearchView->Search(row, mChannelPages, key, mode);
+	size_t n = mSearchView->Search(ch_type, ch_index, mChannelPages, key, mode);
 	mStack->setCurrentWidget(mSearchView);
 	if (n != 0)
 	{
@@ -577,21 +696,26 @@ void SlackLogViewer::Search(const QString& key, SearchMode mode)
 void SlackLogViewer::CacheAllFiles(CacheStatus::Channel ch, CacheStatus::Type type)
 {
 	//検索範囲
-	std::vector<int> chs;
+	std::vector<std::pair<Channel::Type, int>> chs;
 	if (ch == CacheStatus::ALLCHS)
 	{
-		chs.resize(gChannelVector.size());
-		for (int i = 0; i < gChannelVector.size(); ++i) chs[i] = i;
+		chs.resize(gChannelVector.size() + gDMUserVector.size() + gGMUserVector.size());
+		int i = 0;
+		for (auto& c : gChannelVector) { chs[i] = { Channel::CHANNEL, i }; ++i; }
+		for (auto& c : gDMUserVector) { chs[i] = { Channel::DIRECT_MESSAGE, i }; ++i; }
+		for (auto& c : gGMUserVector) { chs[i] = { Channel::GROUP_MESSAGE, i }; ++i; }
 	}
 	else if (ch == CacheStatus::CURRENTCH)
 	{
-		chs = { mChannelView->currentIndex().row() };
+		auto [ch_type, ch_index] = RowToIndex(mChannelView->currentIndex().row());
+		chs = { { ch_type, ch_index } };
 	}
 	QList<QFuture<CacheResult>> fs;
-	for (int i : chs)
+	for (auto [ch_type, ch_index] : chs)
 	{
-		MessageListView* mes = static_cast<MessageListView*>(mChannelPages->widget(i));
-		fs.append(QtConcurrent::run(::CacheAllFiles, i, mes, type));
+		int row = IndexToRow(ch_type, ch_index);
+		MessageListView* mes = static_cast<MessageListView*>(mChannelPages->widget(row));
+		fs.append(QtConcurrent::run(::CacheAllFiles, ch_type, ch_index, mes, type));
 	}
 	size_t num_exist = 0;
 	size_t num_downloaded = 0;
@@ -668,42 +792,130 @@ void SlackLogViewer::closeEvent(QCloseEvent* event)
 	QMainWindow::closeEvent(event);
 }
 
-QVariant ChannelListModel::data(const QModelIndex& index, int role) const
+ChannelTreeModel::ChannelTreeModel()
+	: mPublicIcon(ResourcePath("hash.svg")), mPrivateIcon(ResourcePath("lock.svg"))
 {
-	if (role != Qt::DisplayRole) return QVariant();
+}
+QVariant ChannelTreeModel::data(const QModelIndex& index, int role) const
+{
+	if (!index.isValid()) return QVariant();
+	if (role == Qt::DisplayRole)
+	{
+		const Channel* ch = static_cast<const Channel*>(index.internalPointer());
+		if (ch->IsParent())
+		{
+			if (ch->GetType() == Channel::CHANNEL) return QString("Channels");
+			if (ch->GetType() == Channel::DIRECT_MESSAGE) return QString("Direct messages");
+			if (ch->GetType() == Channel::GROUP_MESSAGE) return QString("Group messages");
+		}
+		return ch->GetName();
+	}
+	else if (role == Qt::DecorationRole)
+	{
+		const Channel* ch = static_cast<const Channel*>(index.internalPointer());
+		if (ch->IsParent()) return QVariant();
+		if (ch->GetType() == Channel::CHANNEL)
+		{
+			if (!ch->IsPrivate()) return mPublicIcon;
+			else return mPrivateIcon;
+		}
+		else if (ch->GetType() == Channel::DIRECT_MESSAGE)
+		{
+			auto& member = GetChannel(Channel::DIRECT_MESSAGE, index.row()).GetMembers().first();
+			auto uit = gUsers.find(member);
+			if (uit == gUsers.end()) throw std::exception("user not found");
+			return uit->GetIcon();
+		}
+		else if (ch->GetType() == Channel::GROUP_MESSAGE)
+		{
+
+		}
+	}
+	return QVariant();
+}
+int ChannelTreeModel::rowCount(const QModelIndex& parent) const
+{
+	if (!parent.isValid()) return (int)Channel::END_CH;
+	if (parent.parent().isValid()) return 0;
+	if (parent.row() == (int)Channel::CHANNEL) return (int)gChannelVector.size();
+	if (parent.row() == (int)Channel::DIRECT_MESSAGE) return (int)gDMUserVector.size();
+	if (parent.row() == (int)Channel::GROUP_MESSAGE) return (int)gGMUserVector.size();
+}
+int ChannelTreeModel::columnCount(const QModelIndex& parent) const
+{
+	return 1;
+}
+QModelIndex ChannelTreeModel::index(int row, int /*column*/, const QModelIndex& parent) const
+{
+	void* ptr = nullptr;
+	if (!parent.isValid())
+	{
+		//parentがvalidでないなら、public, private, dmを抱える親ノードである。
+		if (row >= (int)Channel::END_CH) return QModelIndex();
+		ptr = &gChannelParentVector[row];
+	}
+	else
+	{
+		//parentがvalidなら、public_ch、private_ch、dmいずれかである。
+		if (parent.row() == (int)Channel::CHANNEL && row < gChannelVector.size()) ptr = &gChannelVector[row];
+		else if (parent.row() == (int)Channel::DIRECT_MESSAGE && row < gDMUserVector.size()) ptr = &gDMUserVector[row];
+		else if (parent.row() == (int)Channel::GROUP_MESSAGE && row < gGMUserVector.size()) ptr = &gGMUserVector[row];
+		else return QModelIndex();
+	}
+	return createIndex(row, 0, ptr);
+}
+QModelIndex ChannelTreeModel::parent(const QModelIndex& index) const
+{
 	const Channel* ch = static_cast<const Channel*>(index.internalPointer());
-	return "  # " + ch->GetName();
+	if (!index.isValid()) return QModelIndex();
+	if (ch->IsParent()) return QModelIndex();
+	int type = ch->GetType();
+	return createIndex(type, 0, &gChannelParentVector[type]);
 }
-int ChannelListModel::rowCount(const QModelIndex& parent) const
+bool ChannelTreeModel::insertRows(int row, int count, const QModelIndex& parent)
 {
-	if (!parent.isValid()) return (int)gChannelVector.size();
-	return 0;
-}
-QModelIndex ChannelListModel::index(int row, int /*column*/, const QModelIndex& parent) const
-{
-	//parentがrootnodeでない場合は子ノードは存在しない。
-	if (parent.isValid()) return QModelIndex();
-	if (gChannelVector.size() <= row) return QModelIndex();
-	return createIndex(row, 0, (void*)(&gChannelVector[row]));
-}
-bool ChannelListModel::insertRows(int row, int count, const QModelIndex& parent)
-{
+	//parentが最上位ノードの場合、insertは不可能。
+	if (!parent.isValid()) return false;
+	if (parent.row() >= (int)Channel::END_CH) return false;
 	beginInsertRows(parent, row, row + count - 1);
-	gChannelVector.insert(row, count, Channel());
+	if (parent.row() == (int)Channel::CHANNEL) gChannelVector.insert(row, count, Channel());
+	else if (parent.row() == (int)Channel::DIRECT_MESSAGE) gDMUserVector.insert(row, count, Channel());
+	else if (parent.row() == (int)Channel::GROUP_MESSAGE) gGMUserVector.insert(row, count, Channel());
 	endInsertRows();
 	return true;
 }
-bool ChannelListModel::removeRows(int row, int count, const QModelIndex& parent)
+bool ChannelTreeModel::removeRows(int row, int count, const QModelIndex& parent)
 {
+	//parentが最上位ノードの場合、removeは不可能。
+	if (!parent.isValid()) return false;
+	if (parent.row() >= (int)Channel::END_CH) return false;
 	beginRemoveRows(parent, row, row + count - 1);
-	gChannelVector.remove(row, count);
+	if (parent.row() == (int)Channel::CHANNEL) gChannelVector.remove(row, count);
+	else if (parent.row() == (int)Channel::DIRECT_MESSAGE) gDMUserVector.remove(row, count);
+	else if (parent.row() == (int)Channel::GROUP_MESSAGE) gGMUserVector.remove(row, count);
 	endInsertRows();
 	return true;
 }
 
-void ChannelListModel::SetChannelInfo(int row, const QString& id, const QString& name)
+void ChannelTreeModel::SetChannelInfo(int row, bool is_private, const QString& id, const QString& name, const QVector<QString>& members)
 {
-	gChannelVector[row].SetChannelInfo(id, name);
+	gChannelVector[row].SetChannelInfo(Channel::CHANNEL, is_private, id, name, members);
+}
+void ChannelTreeModel::SetDMUserInfo(int row, const QString& id, const QString& name, const QVector<QString>& members)
+{
+	gDMUserVector[row].SetChannelInfo(Channel::DIRECT_MESSAGE, id, name, members);
+}
+void ChannelTreeModel::SetGMUserInfo(int row, const QString& id, const QString& name, const QVector<QString>& members)
+{
+	gGMUserVector[row].SetChannelInfo(Channel::GROUP_MESSAGE, id, name, members);
+}
+std::pair<Channel::Type, int> ChannelTreeModel::GetChannelIndex(const QModelIndex& index) const
+{
+	if (!index.isValid()) return { Channel::END_CH, -1 };
+	const Channel* ch = static_cast<const Channel*>(index.internalPointer());
+	QModelIndex p = parent(index);
+	if (!p.isValid()) return { ch->GetType(), -1 };
+	return { ch->GetType(), index.row() };
 }
 
 MessageHeaderWidget::MessageHeaderWidget()

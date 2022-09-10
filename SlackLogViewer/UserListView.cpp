@@ -112,7 +112,7 @@ UserProfileWidget::UserProfileWidget()
 }
 void UserProfileWidget::UpdateUserProfile(const User& user)
 {
-	QPixmap icon(user.GetIcon());
+	QPixmap icon(user.GetPixmap());
 	mIcon->setPixmap(icon);
 
 	auto get_text = [](const QString& str) { return str.isEmpty() ? "Not set" : str; };

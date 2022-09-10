@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.14)
 
 set(VER_MAJOR 1)
-set(VER_MINOR 1)
-set(VER_PATCH 2)
-set(VER_REVISION 4)
+set(VER_MINOR 2)
+set(VER_PATCH 3)
+set(VER_REVISION 0)
 set(COMPANY_COPYRIGHT "Copyright(C) 2020-2022 T.Hayakawa")
 
 project(SlackLogViewer VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}.${VER_REVISION}")
@@ -107,6 +107,7 @@ string(TOUPPER ${CMAKE_BUILD_TYPE} UPPER_BUILD_TYPE)
 #copy quazip dll
 get_target_property(QUAZIP_SHARED_LOC QuaZip::QuaZip IMPORTED_LOCATION_${UPPER_BUILD_TYPE})
 if (WIN32 AND QUAZIP_SHARED_LOC)
+    message("quazip shared loc = ${QUAZIP_SHARED_LOC}")
     get_filename_component(QUAZIP_SHARED_NAME ${QUAZIP_SHARED_LOC} NAME)
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD

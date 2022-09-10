@@ -115,7 +115,7 @@ QJsonDocument LoadJsonFile(const QString& folder_or_zip, const QString& path)
 	if (info.isDir())
 	{
 		QFile file(folder_or_zip + "\\" + path);
-		if (!file.open(QIODevice::ReadOnly)) exit(-1);
+		if (!file.open(QIODevice::ReadOnly)) return QJsonDocument();
 		QByteArray data = file.readAll();
 		return QJsonDocument::fromJson(data);
 	}
@@ -123,7 +123,7 @@ QJsonDocument LoadJsonFile(const QString& folder_or_zip, const QString& path)
 	{
 		if (info.suffix() != "zip") exit(-1);
 		QuaZipFile file(folder_or_zip, path);
-		if (!file.open(QIODevice::ReadOnly)) exit(-1);
+		if (!file.open(QIODevice::ReadOnly)) return QJsonDocument();
 		QByteArray data = file.readAll();
 		return QJsonDocument::fromJson(data);
 	}
@@ -215,15 +215,61 @@ User::User()
 {}
 
 Channel::Channel()
+	: mType(END_CH), mIsPrivate(false)
 {}
-Channel::Channel(const QString& id, const QString& name)
+Channel::Channel(Type type, const QString& id, const QString& name, const QVector<QString>& members)
+	: mIsPrivate(false)
 {
-	SetChannelInfo(id, name);
+	SetChannelInfo(type, id, name, members);
 }
-void Channel::SetChannelInfo(const QString& id, const QString& name)
+Channel::Channel(Type type, bool is_private, const QString& id, const QString& name, const QVector<QString>& members)
 {
+	SetChannelInfo(type, id, name, members);
+	mIsPrivate = is_private;
+}
+void Channel::SetChannelInfo(Type type, const QString& id, const QString& name, const QVector<QString>& members)
+{
+	mType = type;
 	mID = id;
 	mName = name;
+	mMembers = members;
+}
+void Channel::SetChannelInfo(Type type, bool is_private, const QString& id, const QString& name, const QVector<QString>& members)
+{
+	mType = type;
+	mIsPrivate = is_private;
+	mID = id;
+	mName = name;
+	mMembers = members;
+}
+const Channel& GetChannel(Channel::Type type, int index)
+{
+	if (type == Channel::CHANNEL) return gChannelVector[index];
+	else if (type == Channel::DIRECT_MESSAGE) return gDMUserVector[index];
+	else if (type == Channel::GROUP_MESSAGE) return gGMUserVector[index];
+}
+const Channel& GetChannel(int row)
+{
+	auto [type, index] = RowToIndex(row);
+	return GetChannel(type, index);
+}
+
+int IndexToRow(Channel::Type type, int index)
+{
+	if (type == Channel::CHANNEL) return index;
+	else if (type == Channel::DIRECT_MESSAGE) return gChannelVector.size() + index;
+	else if (type == Channel::GROUP_MESSAGE) return gChannelVector.size() + gDMUserVector.size() + index;
+	else throw std::exception("invalid channel type");
+}
+std::pair<Channel::Type, int> RowToIndex(int row)
+{
+	int chsize = gChannelVector.size();
+	int dmsize = gDMUserVector.size();
+	int gmsize = gGMUserVector.size();
+	if (row < chsize) return std::make_pair(Channel::CHANNEL, row);
+	else if (row < chsize + dmsize) return std::make_pair(Channel::DIRECT_MESSAGE, row - chsize);
+	else if (row < chsize + dmsize + gmsize) return std::make_pair(Channel::GROUP_MESSAGE, row - chsize - dmsize);
+	else throw std::exception("invalid row");
 }
 
 QString GetCacheDirFromEnv()
@@ -328,5 +374,8 @@ QString gWorkspace = QString();
 QString gResourceDir = QString();
 QString gCacheDir = QString();
 QMap<QString, User> gUsers = QMap<QString, User>();
+QVector<Channel> gChannelParentVector = QVector<Channel>();
 QVector<Channel> gChannelVector = QVector<Channel>();
-QStringList gHiddenChannels = QStringList();
+QVector<Channel> gPrivateChannelVector = QVector<Channel>();
+QVector<Channel> gDMUserVector = QVector<Channel>();
+QVector<Channel> gGMUserVector = QVector<Channel>();

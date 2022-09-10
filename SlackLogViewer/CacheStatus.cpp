@@ -117,9 +117,9 @@ void CacheStatus::showEvent(QShowEvent* event)
 	QFrame::showEvent(event);
 }
 
-CacheResult CacheAllFiles(int ch, MessageListView* mes, CacheStatus::Type type)
+CacheResult CacheAllFiles(Channel::Type ch_type, int ch, MessageListView* mes, CacheStatus::Type type)
 {
-	if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
+	if (!mes->IsConstructed()) mes->Construct(ch_type, ch);
 	size_t downloaded = 0;
 	size_t exist = 0;
 	size_t failure = 0;

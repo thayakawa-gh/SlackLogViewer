@@ -11,6 +11,7 @@
 
 class QStackedWidget;
 class QListView;
+class QTreeView;
 class ReplyListView;
 class Message;
 class MessageHeaderWidget;
@@ -26,9 +27,12 @@ public:
 
 private:
 
+	void ClearUsersAndChannels();
 	void LoadSettings();
 	void LoadUsers();
 	void LoadChannels();
+	void LoadDirectMessages();
+	void LoadGroupMessages();
 
 public Q_SLOTS:
 
@@ -40,8 +44,8 @@ public Q_SLOTS:
 	void OpenOption();
 	void Exit();
 
-	void SetChannel(int ch);//チャンネルを切り替える。
-	void SetChannelAndIndex(int ch, int row, int parentrow = -1);
+	void SetChannel(Channel::Type type, int ch);//チャンネルを切り替える。
+	void SetChannelAndIndex(Channel::Type type, int ch, int row, int parentrow = -1);
 	void JumpToPage(int page);
 
 	void OpenThread(const Message* m);
@@ -65,7 +69,7 @@ private:
 
 	QVector<QAction*> mOpenRecentActions;
 	MessageHeaderWidget* mMessageHeader;
-	QListView* mChannelView;
+	QTreeView* mChannelView;
 	QList<MessageListView*> mBrowsedChannels;//最大でNumOfChannelStorage個までのチャンネル情報を保管しておく。ここから溢れたものはメモリから削除する。
 	QStackedWidget* mStack;
 	QStackedWidget* mChannelPages;
@@ -81,18 +85,28 @@ private:
 };
 
 
-class ChannelListModel : public QAbstractListModel
+class ChannelTreeModel : public QAbstractItemModel
 {
 public:
+
+	ChannelTreeModel();
+
 	virtual QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const;
 	virtual int rowCount(const QModelIndex& parent = QModelIndex()) const;
-	//virtual int columnCount(const QModelIndex& parent = QModelIndex()) const;
+	virtual int columnCount(const QModelIndex& parent = QModelIndex()) const;
 	virtual QModelIndex index(int row, int column, const QModelIndex& parent) const;
-	//virtual QModelIndex parent(const QModelIndex& index) const;
+	virtual QModelIndex parent(const QModelIndex& index) const;
 	virtual bool insertRows(int row, int count, const QModelIndex& parent = QModelIndex());
 	virtual bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex());
 
-	void SetChannelInfo(int row, const QString& id, const QString& name);
+	void SetChannelInfo(int row, bool is_private, const QString& id, const QString& name, const QVector<QString>& members);
+	void SetDMUserInfo(int row, const QString& id, const QString& name, const QVector<QString>& members);
+	void SetGMUserInfo(int row, const QString& id, const QString& name, const QVector<QString>& members);
+
+	std::pair<Channel::Type, int> GetChannelIndex(const QModelIndex& index) const;
+
+	QIcon mPublicIcon;
+	QIcon mPrivateIcon;
 };
 
 

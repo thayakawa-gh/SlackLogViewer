@@ -33,7 +33,7 @@ public:
 	virtual int GetTrueRowCount() const;
 
 	bool IsEmpty() const { return mParentMessage == nullptr; }
-	int GetChannelIndex() const { return mParentMessage->GetChannel(); }
+	std::pair<Channel::Type, int> GetChannelIndex() const { return { mParentMessage->GetChannelType(), mParentMessage->GetChannel() }; }
 
 public Q_SLOTS:
 

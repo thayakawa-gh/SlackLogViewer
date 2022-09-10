@@ -3,7 +3,9 @@
 
 #include <QFrame>
 #include <QWidgetAction>
+#include "GlobalVariables.h"
 
+class Channel;
 class QLabel;
 class MessageListView;
 
@@ -40,7 +42,7 @@ struct CacheResult
 	size_t num_failure;
 };
 
-CacheResult CacheAllFiles(int ch, MessageListView* mes, CacheStatus::Type type);
+CacheResult CacheAllFiles(Channel::Type ch_type, int ch_index, MessageListView* mes, CacheStatus::Type type);
 void ClearCache(CacheStatus::Type type);
 
 #endif

@@ -5,6 +5,7 @@
 #include <QVector>
 #include <QMap>
 #include <QPixmap>
+#include <QIcon>
 #include <QDateTime>
 #include <memory>
 #include <QSettings>
@@ -65,13 +66,15 @@ public:
 	const QString& GetEmail() const { return mEmail; }
 	const QString& GetSkype() const { return mSkype; }
 	const QString& GetIconUrl() const { return mIconUrl; }
-	const QPixmap& GetIcon() const { return mIcon; }
+	const QPixmap& GetPixmap() const { return mPixmap; }
+	const QIcon& GetIcon() const { return mIcon; }
 	bool IsDeleted() const { return mDeleted; }
 	bool IsAdmin() const { return mAdmin; }
 	bool IsOwner() const { return mOwner; }
 	void SetUserIcon(const QByteArray& data)
 	{
-		mIcon.loadFromData(data);
+		mPixmap.loadFromData(data);
+		mIcon = mPixmap;
 	}
 
 private:
@@ -86,7 +89,8 @@ private:
 	QString mEmail;
 	QString mSkype;
 	QString mIconUrl;
-	QPixmap mIcon;
+	QPixmap mPixmap;
+	QIcon mIcon;
 
 	bool mDeleted;
 	bool mAdmin;
@@ -97,20 +101,43 @@ class Channel
 {
 public:
 
+	enum Type { CHANNEL, DIRECT_MESSAGE, GROUP_MESSAGE, END_CH, };
+
 	Channel();
-	Channel(const QString& id, const QString& name);
+	Channel(Type type, const QString& id, const QString& name, const QVector<QString>& members);
+	Channel(Type type, bool is_private, const QString& id, const QString& name, const QVector<QString>& members);
 
-	void SetChannelInfo(const QString& id, const QString& name);
+	void SetChannelInfo(Type type, const QString& id, const QString& name, const QVector<QString>& members);
+	void SetChannelInfo(Type type, bool is_private, const QString& id, const QString& name, const QVector<QString>& members);
 
+	Type GetType() const { return mType; }
+	bool IsPrivate() const { return mIsPrivate; }
 	const QString& GetID() const { return mID; }
 	const QString& GetName() const { return mName; }
+	//Channelの場合はディレクトリはチャンネル名だが、DM、GMではなぜかIDなので、その差を吸収する。
+	const QString& GetDirName() const
+	{
+		if (mType == DIRECT_MESSAGE) return mID;
+		return mName;
+	}
+	const QVector<QString>& GetMembers() const { return mMembers; }
 
+	bool IsParent() const { return mID.isEmpty() && mName.isEmpty(); }
 
 private:
 
+	Type mType;
+	bool mIsPrivate;
 	QString mID;
 	QString mName;
+	QVector<QString> mMembers;
 };
+
+const Channel& GetChannel(Channel::Type type, int index);
+const Channel& GetChannel(int row);
+
+int IndexToRow(Channel::Type type, int index);
+std::pair<Channel::Type, int> RowToIndex(int row);
 
 void Construct(QSettings& s, const QDir& exedir);
 
@@ -131,8 +158,11 @@ extern QString gWorkspace;//workspaceと言いつつ、ログファイルのフ�
 extern QString gResourceDir;
 extern QString gCacheDir;
 extern QMap<QString, User> gUsers;
+extern QVector<Channel> gChannelParentVector;
 extern QVector<Channel> gChannelVector;
-extern QStringList gHiddenChannels;
+extern QVector<Channel> gPrivateChannelVector;
+extern QVector<Channel> gDMUserVector;
+extern QVector<Channel> gGMUserVector;
 
 
 inline static const int gHeaderHeight = 48;

@@ -1,3 +1,4 @@
+#include <filesystem>
 #include "MessageListView.h"
 #include "FileDownloader.h"
 #include "GlobalVariables.h"
@@ -189,8 +190,8 @@ ThreadWidget::ThreadWidget(Message& m, QSize threadsize)
 		icon->setStyleSheet("border: 0px;");
 		auto it = gUsers.find(u);
 		if (it == gUsers.end())
-			icon->setPixmap(gEmptyUser->GetIcon().scaled(gThreadIconSize, gThreadIconSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
-		else icon->setPixmap(it.value().GetIcon().scaled(gThreadIconSize, gThreadIconSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+			icon->setPixmap(gEmptyUser->GetPixmap().scaled(gThreadIconSize, gThreadIconSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+		else icon->setPixmap(it.value().GetPixmap().scaled(gThreadIconSize, gThreadIconSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		l->addWidget(icon);
 	}
 	QLabel* rep = new QLabel();
@@ -239,30 +240,19 @@ MessageListView::MessageListView()
 	auto* scroll = verticalScrollBar();
 	connect(scroll, SIGNAL(valueChanged(int)), this, SLOT(UpdateCurrentPage()));
 }
-void MessageListView::Construct(const QString& channel)
+void MessageListView::Construct(Channel::Type type, int index)
 {
 	mConstructed = true;
-	/*QDir dir = gSettings->value("History/LastLogFilePath").toString() + "/" + channel;
-	QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
-	QStringList files = dir.entryList(ext, QDir::Files, QDir::Name);*/
-	auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
-	int ch_index = ch_it - gChannelVector.begin();
 	QString folder_or_zip = gSettings->value("History/LastLogFilePath").toString();
-	//QVector<std::pair<QDateTime, QString>> files = GetMessageFileList(folder_or_zip, channel);
-	//for (const auto& f : files)
-	//{
-	//	QJsonArray a = LoadJsonFile(folder_or_zip, f.second).array();
-	//}
 	QFileInfo info(folder_or_zip);
 	using MessagesAndReplies = std::pair<std::vector<std::shared_ptr<Message>>, std::vector<std::shared_ptr<Message>>>;
 	std::map<QDateTime, QFuture<MessagesAndReplies>> messages_and_replies;
 	std::mutex thmtx;
+	const QString& dirname = GetChannel(type, index).GetDirName();
 	if (info.isDir())
 	{
 		//ディレクトリの場合。
-		QDir dir = folder_or_zip + "/" + channel;
-		//auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
-		//int ch_index = ch_it - gChannelVector.begin();
+		QDir dir = folder_or_zip + "/" + dirname;
 		QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
 		QStringList filenames = dir.entryList(ext, QDir::Files, QDir::Name);
 		for (auto& name : filenames)
@@ -270,13 +260,12 @@ void MessageListView::Construct(const QString& channel)
 			int end = name.lastIndexOf('.');
 			auto dtstr = name.left(end);
 			QDateTime d = QDateTime::fromString(dtstr, Qt::ISODate);
-			QFile file(folder_or_zip + "/" + channel  + "/" + name);
+			QFile file(folder_or_zip + "/" + dirname + "/" + name);
 			if (!file.open(QIODevice::ReadOnly)) exit(-1);
 			QByteArray data = file.readAll();
-			//auto [mrit, b] = messages_and_replies.insert(std::make_pair(std::move(d), MessagesAndReplies{}));
 			messages_and_replies.insert(std::pair(std::move(d),
 												  QtConcurrent::run(&Construct_parallel,
-																	ch_index, std::move(data),
+																	type, index, std::move(data),
 																	&mThreads, &thmtx)));
 		}
 	}
@@ -290,18 +279,23 @@ void MessageListView::Construct(const QString& channel)
 		for (bool b = zip.goToFirstFile(); b; b = zip.goToNextFile())
 		{
 			zip.getCurrentFileInfo(&info);
-			if (!info.name.startsWith(channel + "/")) continue;
-			if (info.name.endsWith("/")) continue;
-			int begin = info.name.indexOf('/');
-			int end = info.name.lastIndexOf('.');
-			auto dstr = info.name.mid(begin + 1, end - begin - 1);
-			QDateTime d = QDateTime::fromString(dstr, Qt::ISODate);
+			if (!info.name.endsWith(".json")) continue;
+			//ここはQDirではなくstd::filesystem::pathを使う。
+			//というのも、QDirは存在しないディレクトリを扱えないため。
+			//今、dirはzipファイル内の構造を示しており、つまり実在しないディレクトリである。
+			//したがって、std::filesystem::pathでないと扱うことが出来ない。
+			std::filesystem::path dir = (const char*)info.name.toLocal8Bit();
+			auto qstr = QString::fromStdString(dir.parent_path().u8string());
+			if (qstr != dirname) continue;
+			auto jsonname = dir.stem();
+			QDateTime d = QDateTime::fromString(QString::fromLocal8Bit(jsonname.string().c_str()), Qt::ISODate);
+			QString dtstr = d.toString();
 			QuaZipFile file(&zip);
 			file.open(QIODevice::ReadOnly);
 			QByteArray data = file.readAll();
 			messages_and_replies.insert(std::pair(std::move(d),
 												  QtConcurrent::run(&Construct_parallel,
-																	ch_index, std::move(data),
+																	type, index, std::move(data),
 																	&mThreads, &thmtx)));
 		}
 	}
@@ -338,7 +332,7 @@ void MessageListView::Construct(const QString& channel)
 	UpdateCurrentPage();
 }
 std::pair<std::vector<std::shared_ptr<Message>>, std::vector<std::shared_ptr<Message>>>
-MessageListView::Construct_parallel(int ch_index, QByteArray data,
+MessageListView::Construct_parallel(Channel::Type type, int ch_index, QByteArray data,
 										 std::map<QString, std::shared_ptr<Thread>>* threads, std::mutex* thmtx)
 {
 	std::vector<std::shared_ptr<Message>> messages;
@@ -366,7 +360,7 @@ MessageListView::Construct_parallel(int ch_index, QByteArray data,
 				const QJsonArray& ausers = o.find("reply_users").value().toArray();
 				std::vector<QString> users(ausers.size());
 				for (int i = 0; i < ausers.size(); ++i) users[i] = ausers[i].toString();
-				std::shared_ptr<Message> mes = std::make_shared<Message>(ch_index, o, thread_ts);
+				std::shared_ptr<Message> mes = std::make_shared<Message>(type, ch_index, o, thread_ts);
 				messages.emplace_back(mes);
 				std::lock_guard<std::mutex> lg(*thmtx);
 				auto [thit, b] = threads->insert(std::make_pair(thread_ts, std::make_shared<Thread>(mes.get(), std::move(users))));
@@ -385,12 +379,12 @@ MessageListView::Construct_parallel(int ch_index, QByteArray data,
 					messages.emplace_back(std::make_shared<Message>(ch_index, o));
 				}
 				else thit->second.AddReply(ch_index, o);*/
-				replies.emplace_back(std::make_shared<Message>(ch_index, o, std::move(thread_ts)));
+				replies.emplace_back(std::make_shared<Message>(type, ch_index, o, std::move(thread_ts)));
 			}
 		}
 		else
 		{
-			messages.emplace_back(std::make_shared<Message>(ch_index, o));
+			messages.emplace_back(std::make_shared<Message>(type, ch_index, o));
 		}
 	}
 	return { std::move(messages), std::move(replies) };
@@ -635,7 +629,7 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 
 	{
 		//icon
-		QPixmap icon(m.GetUser().GetIcon().scaled(QSize(36, 36), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+		QPixmap icon(m.GetUser().GetPixmap().scaled(QSize(36, 36), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		ClickableLabel* label = new ClickableLabel();
 		label->setStyleSheet("border: 0px;");
 		label->setPixmap(icon);
@@ -887,7 +881,7 @@ int MessageDelegate::PaintMessage(QPainter* painter, QRect crect, int ypos, cons
 
 	// Draw message icon
 	painter->drawPixmap(crect.left(), crect.top(),
-						m->GetUser().GetIcon().scaled(QSize(gIconSize, gIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+						m->GetUser().GetPixmap().scaled(QSize(gIconSize, gIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 
 	// Draw name
 	QSize nmsize = GetNameSize(option, index);
@@ -979,9 +973,9 @@ int MessageDelegate::PaintThread(QPainter* painter, QRect crect, int ypos, const
 	{
 		auto it = gUsers.find(u);
 		if (it == gUsers.end())
-			painter->drawPixmap(x, y, gEmptyUser->GetIcon().scaled(QSize(gThreadIconSize, gThreadIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+			painter->drawPixmap(x, y, gEmptyUser->GetPixmap().scaled(QSize(gThreadIconSize, gThreadIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		else
-			painter->drawPixmap(x, y, it.value().GetIcon().scaled(QSize(gThreadIconSize, gThreadIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+			painter->drawPixmap(x, y, it.value().GetPixmap().scaled(QSize(gThreadIconSize, gThreadIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		x += gThreadIconSize + gSpacing;
 	}
 	QFont f(option.font);

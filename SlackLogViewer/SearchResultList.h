@@ -44,9 +44,9 @@ private:
 	short mValue;
 };
 
-std::vector<std::shared_ptr<Message>> SearchExactPhrase(int ch, MessageListView* mes, QString phrase, SearchMode mode);
-std::vector<std::shared_ptr<Message>> SearchWords(int ch, MessageListView* mes, QStringList keys, SearchMode mode);
-std::vector<std::shared_ptr<Message>> SearchWithRegex(int ch, MessageListView* mes, QRegularExpression regex, SearchMode mode);
+std::vector<std::shared_ptr<Message>> SearchExactPhrase(Channel::Type ch_type, int ch, MessageListView* mes, QString phrase, SearchMode mode);
+std::vector<std::shared_ptr<Message>> SearchWords(Channel::Type ch_type, int ch, MessageListView* mes, QStringList keys, SearchMode mode);
+std::vector<std::shared_ptr<Message>> SearchWithRegex(Channel::Type ch_type, int ch, MessageListView* mes, QRegularExpression regex, SearchMode mode);
 
 class QStackedWidget;
 
@@ -57,7 +57,7 @@ public:
 
 	SearchResultListView();
 
-	size_t Search(int ch, const QStackedWidget* stack, const QString& key, SearchMode mode);
+	size_t Search(Channel::Type type, int ch, const QStackedWidget* stack, const QString& key, SearchMode mode);
 	void Close();
 
 	const std::vector<std::shared_ptr<Message>>& GetMessages() const { return mView->GetMessages(); }
@@ -75,6 +75,7 @@ protected:
 	SearchMode mMode;
 	QString mKey;
 	int mChannel;
+	Channel::Type mChType;
 };
 
 

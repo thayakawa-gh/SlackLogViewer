@@ -176,9 +176,10 @@ class Message
 {
 public:
 
-	Message(int ch, const QJsonObject& o);
-	Message(int ch, const QJsonObject& o, QString threads_ts);//これはリプライ用。
+	Message(Channel::Type, int ch, const QJsonObject& o);
+	Message(Channel::Type, int ch, const QJsonObject& o, QString threads_ts);//これはリプライ用。
 
+	Channel::Type GetChannelType() const { return mChannelType; }
 	int GetChannel() const { return mChannel; }
 	int GetRow() const { return mRow; }
 	void SetRow(int row) { mRow = row; }
@@ -274,6 +275,7 @@ private:
 
 	void CreateTextDocument() const;
 
+	Channel::Type mChannelType;
 	int mChannel;
 	int mRow;
 	QString mUserID;

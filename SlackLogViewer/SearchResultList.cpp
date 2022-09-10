@@ -15,10 +15,9 @@
 #include <QtConcurrent>
 #include <execution>
 
-std::vector<std::shared_ptr<Message>> SearchExactPhrase(int ch, MessageListView* mes, QString phrase, SearchMode mode)
+std::vector<std::shared_ptr<Message>> SearchExactPhrase(Channel::Type ch_type, int ch, MessageListView* mes, QString phrase, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
-	//if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
 	bool case_sensitive = mode.GetCaseMode() == SearchMode::SENSITIVE ? true : false;
 	bool body = mode.Body();
 	bool user = mode.User();
@@ -39,10 +38,9 @@ std::vector<std::shared_ptr<Message>> SearchExactPhrase(int ch, MessageListView*
 	}
 	return res;
 }
-std::vector<std::shared_ptr<Message>> SearchWords(int ch, MessageListView* mes, QStringList keys, SearchMode mode)
+std::vector<std::shared_ptr<Message>> SearchWords(Channel::Type ch_type, int ch, MessageListView* mes, QStringList keys, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
-	//if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
 	bool case_sensitive = mode.GetCaseMode() == SearchMode::SENSITIVE ? true : false;
 	bool all = (mode.GetMatchMode() == SearchMode::ALLWORDS ? true : false);
 	bool body = mode.Body();
@@ -65,10 +63,9 @@ std::vector<std::shared_ptr<Message>> SearchWords(int ch, MessageListView* mes, 
 	}
 	return res;
 }
-std::vector<std::shared_ptr<Message>> SearchWithRegex(int ch, MessageListView* mes, QRegularExpression regex, SearchMode mode)
+std::vector<std::shared_ptr<Message>> SearchWithRegex(Channel::Type ch_type, int ch, MessageListView* mes, QRegularExpression regex, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
-	//if (!mes->IsConstructed()) mes->Construct(gChannelVector[ch].GetName());
 	bool body = mode.Body();
 	bool user = mode.User();
 	bool fname = mode.FileName();
@@ -90,7 +87,7 @@ std::vector<std::shared_ptr<Message>> SearchWithRegex(int ch, MessageListView* m
 }
 
 SearchResultListView::SearchResultListView()
-	: mChannel(-1)
+	: mChannel(-1), mChType(Channel::END_CH)
 {
 	QVBoxLayout* layout = new QVBoxLayout();
 	layout->setContentsMargins(gSpacing, gSpacing, gSpacing, gSpacing);
@@ -126,12 +123,13 @@ SearchResultListView::SearchResultListView()
 	setLayout(layout);
 }
 
-size_t SearchResultListView::Search(int ch, const QStackedWidget* stack, const QString& key, SearchMode mode)
+size_t SearchResultListView::Search(Channel::Type ch_type, int ch, const QStackedWidget* stack, const QString& key, SearchMode mode)
 {
 	//検索キーとmodeが完全一致する場合、すでに結果は出ているので実行しなくても良い。
-	if (ch == mChannel && key == mKey && mode == mMode)
+	if (ch == mChannel && ch_type == mChType && key == mKey && mode == mMode)
 		return mView->GetMessages().size();
 	mChannel = ch;
+	mChType = ch_type;
 	mKey = key;
 	mMode = mode;
 
@@ -141,52 +139,59 @@ size_t SearchResultListView::Search(int ch, const QStackedWidget* stack, const Q
 	mLabel->setText("Search results for \"" + (mKey.size() > 40 ? mKey.mid(0, 36) + "..." : mKey) + "\"");
 
 	//検索範囲
-	std::vector<int> chs;
+	std::vector<std::pair<Channel::Type, int>> chs;
 	if (mode.GetRangeMode() == SearchMode::CURRENTCH)
 	{
 		//現在のチャンネルのみを検索
-		chs = { ch };
+		chs = { { ch_type, ch } };
 	}
 	else if (mode.GetRangeMode() == SearchMode::ALLCHS)
 	{
 		//全チャンネルを検索
-		chs.resize(gChannelVector.size());
-		for (int i = 0; i < gChannelVector.size(); ++i) chs[i] = i;
+		chs.resize(gChannelVector.size() + gDMUserVector.size() + gGMUserVector.size());
+		int i = 0;
+		for (int j = 0; j < gChannelVector.size(); ++j) { chs[i] = { Channel::CHANNEL, j }; ++i; };
+		for (int j = 0; j < gDMUserVector.size(); ++j) { chs[i] = { Channel::DIRECT_MESSAGE, j }; ++i; };
+		for (int j = 0; j < gGMUserVector.size(); ++j) { chs[i] = { Channel::GROUP_MESSAGE, j }; ++i; };
 	}
 
 	std::vector<std::shared_ptr<Message>> res;
 	QList<QFuture<std::vector<std::shared_ptr<Message>>>> fs;
-	for (auto i : chs)
+	for (auto [ ch_type, ch_index ] : chs)
 	{
 		//まだチャンネルが読み込まれていない場合、ここで読み込んでおく。
 		//チャンネルの読み込み、検索はどちらもマルチスレッドに行われるので、一応分離しておく。
-		MessageListView* mes = static_cast<MessageListView*>(stack->widget(i));
-		if (!mes->IsConstructed()) mes->Construct(gChannelVector[i].GetName());
+		int row = IndexToRow(ch_type, ch_index);
+		MessageListView* mes = static_cast<MessageListView*>(stack->widget(row));
+		if (!mes->IsConstructed()) mes->Construct(ch_type, ch_index);
 	}
 	if (mode.GetRegexMode() == SearchMode::REGEX)
 	{
 		QRegularExpression regex(key);
-		for (auto i : chs)
+		for (auto [ch_type, ch_index] : chs)
 		{
-			MessageListView* mes = static_cast<MessageListView*>(stack->widget(i));
-			fs.append(QtConcurrent::run(SearchWithRegex, i, mes, regex, mode));
+			int row = IndexToRow(ch_type, ch_index);
+			MessageListView* mes = static_cast<MessageListView*>(stack->widget(row));
+			fs.append(QtConcurrent::run(SearchWithRegex, ch_type, ch_index, mes, regex, mode));
 		}
 	}
 	else if (mode.GetMatchMode() == SearchMode::EXACTPHRASE)
 	{
-		for (auto i : chs)
+		for (auto [ch_type, ch_index] : chs)
 		{
-			MessageListView* mes = static_cast<MessageListView*>(stack->widget(i));
-			fs.append(QtConcurrent::run(SearchExactPhrase, i, mes, key, mode));
+			int row = IndexToRow(ch_type, ch_index);
+			MessageListView* mes = static_cast<MessageListView*>(stack->widget(row));
+			fs.append(QtConcurrent::run(SearchExactPhrase, ch_type, ch_index, mes, key, mode));
 		}
 	}
 	else
 	{
 		QStringList keys = key.split(QRegularExpression("\\s"));
-		for (auto i : chs)
+		for (auto [ch_type, ch_index] : chs)
 		{
-			MessageListView* mes = static_cast<MessageListView*>(stack->widget(i));
-			fs.append(QtConcurrent::run(SearchWords, i, mes, keys, mode));
+			int row = IndexToRow(ch_type, ch_index);
+			MessageListView* mes = static_cast<MessageListView*>(stack->widget(row));
+			fs.append(QtConcurrent::run(SearchWords, ch_type, ch_index, mes, keys, mode));
 		}
 	}
 	for (auto& f : fs)
@@ -248,7 +253,8 @@ FoundMessageEditor::FoundMessageEditor(const Message* m, QWidget* mw)
 		QHBoxLayout* olayout = new QHBoxLayout();
 		olayout->setContentsMargins(0, 0, 0, 0);
 		//channel name
-		QLabel* ch = new QLabel("# " + gChannelVector[m->GetChannel()].GetName());
+		int row = IndexToRow(m->GetChannelType(), m->GetChannel());
+		QLabel* ch = new QLabel("# " + GetChannel(row).GetName());
 		QFont f;
 		f.setPointSizeF(GetNamePointSize());
 		f.setBold(true);
@@ -343,9 +349,9 @@ QWidget* SearchResultDelegate::createEditor(QWidget* parent, const QStyleOptionV
 				auto* mw = MainWindow::Get();
 				int row = m->GetRow();
 				if (m->IsReply())
-					mw->SetChannelAndIndex(m->GetChannel(), row, m->GetThread()->GetParent()->GetRow());
+					mw->SetChannelAndIndex(m->GetChannelType(), m->GetChannel(), row, m->GetThread()->GetParent()->GetRow());
 				else
-					mw->SetChannelAndIndex(m->GetChannel(), row);
+					mw->SetChannelAndIndex(m->GetChannelType(), m->GetChannel(), row);
 			});
 	w->setParent(parent);
 	return w;
@@ -354,7 +360,8 @@ QWidget* SearchResultDelegate::createEditor(QWidget* parent, const QStyleOptionV
 int SearchResultDelegate::PaintChannel(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
-	const QString& ch = gChannelVector[m->GetChannel()].GetName();
+	int row = IndexToRow(m->GetChannelType(), m->GetChannel());
+	const QString& ch = GetChannel(row).GetName();
 
 	painter->save();
 
@@ -374,7 +381,8 @@ int SearchResultDelegate::PaintChannel(QPainter* painter, QRect crect, int ypos,
 QSize SearchResultDelegate::GetChannelSize(const QStyleOptionViewItem& /*option*/, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
-	const QString& ch = gChannelVector[m->GetChannel()].GetName();
+	int row = IndexToRow(m->GetChannelType(), m->GetChannel());
+	const QString& ch = GetChannel(row).GetName();
 	QFont f;
 	f.setBold(true);
 	f.setPointSizeF(GetNamePointSize());

@@ -51,7 +51,7 @@ void DocumentView::Open(const AttachedFile* f)
 	auto it = gUsers.find(f->GetUserID());
 	if (it != gUsers.end())
 	{
-		mUserIcon->setPixmap(it.value().GetIcon().scaled(QSize(gIconSize, gIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+		mUserIcon->setPixmap(it.value().GetPixmap().scaled(QSize(gIconSize, gIconSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 		mTimeStampStr->setText(it.value().GetName() + " " + f->GetTimeStampStr());
 	}
 	else

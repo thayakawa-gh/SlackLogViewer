@@ -239,8 +239,8 @@ OtherFile::OtherFile(const QJsonObject& o)
 	: AttachedFile(OTHER, o)
 {}
 
-Message::Message(int ch, const QJsonObject& o)
-	: mChannel(ch), mRow(0), mThread(nullptr)
+Message::Message(Channel::Type type, int ch, const QJsonObject& o)
+	: mChannelType(type), mChannel(ch), mRow(0), mThread(nullptr)
 {
 	mMessage = o.find("text").value().toString();
 	mTimeStamp.setTime_t(o.find("ts").value().toString().toDouble());
@@ -306,8 +306,8 @@ Message::Message(int ch, const QJsonObject& o)
 		}
 	}
 }
-Message::Message(int ch, const QJsonObject& o, QString threads_ts)
-	: Message(ch, o)
+Message::Message(Channel::Type type, int ch, const QJsonObject& o, QString threads_ts)
+	: Message(type, ch, o)
 {
 	mThreadTimeStampStr = std::move(threads_ts);
 }
