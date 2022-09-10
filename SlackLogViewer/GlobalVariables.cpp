@@ -259,7 +259,7 @@ int IndexToRow(Channel::Type type, int index)
 	if (type == Channel::CHANNEL) return index;
 	else if (type == Channel::DIRECT_MESSAGE) return gChannelVector.size() + index;
 	else if (type == Channel::GROUP_MESSAGE) return gChannelVector.size() + gDMUserVector.size() + index;
-	else throw std::exception("invalid channel type");
+	else throw FatalError("invalid channel type");
 }
 std::pair<Channel::Type, int> RowToIndex(int row)
 {
@@ -269,7 +269,7 @@ std::pair<Channel::Type, int> RowToIndex(int row)
 	if (row < chsize) return std::make_pair(Channel::CHANNEL, row);
 	else if (row < chsize + dmsize) return std::make_pair(Channel::DIRECT_MESSAGE, row - chsize);
 	else if (row < chsize + dmsize + gmsize) return std::make_pair(Channel::GROUP_MESSAGE, row - chsize - dmsize);
-	else throw std::exception("invalid row");
+	else throw FatalError("invalid row");
 }
 
 QString GetCacheDirFromEnv()

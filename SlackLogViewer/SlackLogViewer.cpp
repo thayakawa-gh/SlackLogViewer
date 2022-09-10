@@ -589,7 +589,7 @@ void SlackLogViewer::SetChannel(Channel::Type type, int index)
 		if (type == Channel::CHANNEL) return gChannelVector[index];
 		else if (type == Channel::DIRECT_MESSAGE) return gDMUserVector[index];
 		else if (type == Channel::GROUP_MESSAGE) return gGMUserVector[index];
-		else throw std::exception("invalid channel type");
+		else throw std::string("invalid channel type");
 	}();
 	//setCurrentIndexはCreateより先に呼ばなければならない。
 	//でないと、MessagePagesにwidthがフィットされない状態でdelegateのsizeHintが呼ばれてしまうらしい。
@@ -823,7 +823,7 @@ QVariant ChannelTreeModel::data(const QModelIndex& index, int role) const
 		{
 			auto& member = GetChannel(Channel::DIRECT_MESSAGE, index.row()).GetMembers().first();
 			auto uit = gUsers.find(member);
-			if (uit == gUsers.end()) throw std::exception("user not found");
+			if (uit == gUsers.end()) throw std::string("user not found");
 			return uit->GetIcon();
 		}
 		else if (ch->GetType() == Channel::GROUP_MESSAGE)
@@ -995,7 +995,7 @@ MessageHeaderWidget::MessageHeaderWidget()
 
 void MessageHeaderWidget::Open(const QString& ch, int npages, int currentpage)
 {
-	if (npages <= currentpage) throw std::exception();
+	if (npages <= currentpage) throw FatalError("invalid page number");
 	mNumOfPages = npages;
 	Clear();
 	int x = std::min(npages, msNumOfButtons);

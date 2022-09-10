@@ -143,7 +143,7 @@ CacheResult CacheAllFiles(Channel::Type ch_type, int ch, MessageListView* mes, C
 			else if (f->IsImage()) path = CachePath("Image", f->GetID());
 			else if (f->IsPDF()) path = CachePath("PDF", f->GetID());
 			else if (f->IsOther()) path = CachePath("Others", f->GetID());
-			else throw std::exception();
+			else throw FatalError("unknown file type");
 			{
 				QFile file(path);
 				if (file.exists())

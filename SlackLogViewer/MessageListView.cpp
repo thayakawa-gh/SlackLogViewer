@@ -144,7 +144,7 @@ DocumentWidget::DocumentWidget(const AttachedFile* file, int /*pwidth*/)
 				else if (i->IsImage()) orgpath = CachePath("Image", i->GetID());
 				else if (i->IsPDF()) orgpath = CachePath("PDF", i->GetID());
 				else if (i->IsOther()) orgpath = CachePath("Others", i->GetID());
-				else throw std::exception();
+				else throw FatalError("unknown file type");
 				QFile f(orgpath);
 				if (f.exists())
 				{

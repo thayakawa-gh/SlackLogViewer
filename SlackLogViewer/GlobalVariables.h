@@ -44,6 +44,13 @@ private:
 	std::string mCopyright;
 };
 
+struct FatalError
+{
+	FatalError(const char* m) : mMessage(m) {}
+private:
+	std::string mMessage;
+};
+
 extern VersionInfo gVersionInfo;
 
 QJsonDocument LoadJsonFile(const QString& folder_or_zip, const QString& path);
