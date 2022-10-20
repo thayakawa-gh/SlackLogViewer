@@ -57,7 +57,7 @@ public:
 
 	SearchResultListView();
 
-	size_t Search(Channel::Type type, int ch, const QStackedWidget* stack, const QString& key, SearchMode mode);
+	std::pair<size_t, bool> Search(Channel::Type type, int ch, const QStackedWidget* stack, const QString& key, SearchMode mode);
 	void Close();
 
 	const std::vector<std::shared_ptr<Message>>& GetMessages() const { return mView->GetMessages(); }

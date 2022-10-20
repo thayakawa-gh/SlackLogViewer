@@ -123,11 +123,11 @@ SearchResultListView::SearchResultListView()
 	setLayout(layout);
 }
 
-size_t SearchResultListView::Search(Channel::Type ch_type, int ch, const QStackedWidget* stack, const QString& key, SearchMode mode)
+std::pair<size_t, bool> SearchResultListView::Search(Channel::Type ch_type, int ch, const QStackedWidget* stack, const QString& key, SearchMode mode)
 {
 	//検索キーとmodeが完全一致する場合、すでに結果は出ているので実行しなくても良い。
 	if (ch == mChannel && ch_type == mChType && key == mKey && mode == mMode)
-		return mView->GetMessages().size();
+		return { mView->GetMessages().size(), false };
 	mChannel = ch;
 	mChType = ch_type;
 	mKey = key;
@@ -207,7 +207,7 @@ size_t SearchResultListView::Search(Channel::Type ch_type, int ch, const QStacke
 					  return m1->GetTimeStamp() < m2->GetTimeStamp();
 				  });
 	mView->SetMessages(std::move(res));
-	return mView->GetMessages().size();
+	return { mView->GetMessages().size(), true };
 }
 void SearchResultListView::Close()
 {
