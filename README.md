@@ -25,7 +25,7 @@ Make sure you have installed the following dependencies.
 ### Usage
 On Windows, this application requires Visual C++ Redistributable for Visual Studio 2019.
 
-1. Export a zip file from your Slack workspace.
+1. Export a zip file from your Slack workspace. If you are a free plan user and want to dump direct messages or private channnels, you can also use [slackdump](https://github.com/rusq/slackdump), which can export these messages in a format compatible with SlackLogViewer.
 1. Download prebuilt binary from [Releases](https://github.com/thayakawa-gh/SlackLogViewer/releases) and unzip into any folder.
 1. Execute the SlackLogViewer.
 1. Click "Open" from the menu button in the top left corner of the window, and select the zip file or the folder of exported json files.
