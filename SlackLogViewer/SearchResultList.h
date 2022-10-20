@@ -57,7 +57,8 @@ public:
 
 	SearchResultListView();
 
-	size_t Search(int ch, const QStackedWidget* stack, const QString& key, SearchMode mode);
+	//検索によって見つかったメッセージ数と、そもそも検索が実行されたかどうかを返す。
+	std::pair<size_t, bool> Search(int ch, const QStackedWidget* stack, const QString& key, SearchMode mode);
 	void Close();
 
 	const std::vector<std::shared_ptr<Message>>& GetMessages() const { return mView->GetMessages(); }

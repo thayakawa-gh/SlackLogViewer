@@ -565,13 +565,13 @@ void SlackLogViewer::Search(const QString& key, SearchMode mode)
 
 	if (mode.GetRangeMode() == SearchMode::ALLCHS) row = -1;
 
-	size_t n = mSearchView->Search(row, mChannelPages, key, mode);
+	auto [n, b] = mSearchView->Search(row, mChannelPages, key, mode);
 	mStack->setCurrentWidget(mSearchView);
 	if (n != 0)
 	{
 		//n == 0、つまり要素が一つも見つからなかった場合は、Openを呼んではいけない。
 		dynamic_cast<SearchResultModel*>(mSearchView->GetView()->model())->Open(&mSearchView->GetMessages());
-		mSearchView->GetView()->scrollTo(mSearchView->GetView()->model()->index(0, 0));
+		if (b) mSearchView->GetView()->scrollTo(mSearchView->GetView()->model()->index(0, 0));
 	}
 }
 void SlackLogViewer::CacheAllFiles(CacheStatus::Channel ch, CacheStatus::Type type)
