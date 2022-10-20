@@ -177,7 +177,7 @@ PDFView::~PDFView()
 
 void PDFView::OpenPDF(const AttachedFile* t)
 {
-	QString path = "./Cache/" + gWorkspace + "/PDF/" + t->GetID();
+	QString path = CachePath("PDF", t->GetID());
 	QFileInfo file(path);
 	if (file.exists())
 	{
