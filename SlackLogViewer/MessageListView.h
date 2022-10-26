@@ -247,6 +247,8 @@ public:
 	int PaintThread(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const;//戻り値はypos + 消費したheight
 	int PaintDocument(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const;//戻り値はypos + 消費したheight
 
+	int PaintSeparator(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const;
+
 	QSize GetMessageSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
 
 	QSize GetNameSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
@@ -257,6 +259,8 @@ public:
 
 	QSize GetThreadSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
 	QSize GetDocumentSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
+
+	QSize GetSeparatorSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
 
 protected:
 

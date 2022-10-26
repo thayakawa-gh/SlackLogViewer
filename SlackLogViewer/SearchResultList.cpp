@@ -25,6 +25,7 @@ std::vector<std::shared_ptr<Message>> SearchExactPhrase(Channel::Type ch_type, i
 	bool fcont = mode.FileContents();
 	for (const auto& m : mes->GetMessages())
 	{
+		if (m->IsSeparator()) continue;
 		bool found = m->Contains(phrase, case_sensitive, body, user, fname, fcont);
 		if (found) res.emplace_back(m);
 		if (m->IsParentMessage())
@@ -49,6 +50,7 @@ std::vector<std::shared_ptr<Message>> SearchWords(Channel::Type ch_type, int ch,
 	bool fcont = mode.FileContents();
 	for (const auto& m : mes->GetMessages())
 	{
+		if (m->IsSeparator()) continue;
 		bool found = m->Contains(keys, case_sensitive, all, body, user, fname, fcont);
 		if (found) 
 			res.emplace_back(m);
@@ -72,6 +74,7 @@ std::vector<std::shared_ptr<Message>> SearchWithRegex(Channel::Type ch_type, int
 	bool fcont = mode.FileContents();
 	for (const auto& m : mes->GetMessages())
 	{
+		if (m->IsSeparator()) continue;
 		bool found = m->Contains(regex, body, user, fname, fcont);
 		if (found) res.emplace_back(m);
 		if (m->IsParentMessage())

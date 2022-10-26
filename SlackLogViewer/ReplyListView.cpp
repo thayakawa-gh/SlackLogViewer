@@ -176,6 +176,7 @@ int ReplyDelegate::PaintBorder(QPainter* painter, QRect crect, int ypos, const Q
 	painter->drawText(rect, Qt::TextSingleLine, QString::number(m->size()) + " replies ");
 	rect.adjust(size.width(), 0, 0, 0);
 	int y = (rect.top() + rect.bottom()) / 2;
+	painter->setPen(QColor(192, 192, 192));
 	painter->drawLine(rect.left(), y, rect.right(), y);
 	painter->restore();
 	return ypos + gSpacing;

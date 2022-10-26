@@ -221,7 +221,7 @@ void ThreadWidget::mousePressEvent(QMouseEvent*)
 }
 void ThreadWidget::enterEvent(QEvent*)
 {
-	setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid rgb(128, 128, 128); border-radius: 5px;");
+	setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid rgb(192, 192, 192); border-radius: 5px;");
 	mViewMessage->setVisible(true);
 }
 void ThreadWidget::leaveEvent(QEvent*)
@@ -301,6 +301,7 @@ void MessageListView::Construct(Channel::Type type, int index)
 	}
 
 	//スレッドごとに得た結果を統合する。
+	QDate prev;
 	int row_count = 0;
 	for (auto& [dt, fut] : messages_and_replies)
 	{
@@ -309,6 +310,15 @@ void MessageListView::Construct(Channel::Type type, int index)
 		//mMessages.insert(mMessages.end(), std::make_move_iterator(meses.begin()), std::make_move_iterator(meses.end()));
 		for (auto& mes : meses)
 		{
+			if (*gDateSeparator && (prev.isNull() || mes->GetTimeStamp().date() > prev))
+			{
+				//日付が変わった場合、セパレータを挿入する。
+				prev = mes->GetTimeStamp().date();
+				auto m = std::make_shared<Message>(type, index, mes->GetTimeStamp());
+				m->SetRow(row_count);
+				++row_count;
+				mMessages.emplace_back(std::move(m));
+			}
 			mes->SetRow(row_count);
 			mMessages.emplace_back(std::move(mes));
 			++row_count;
@@ -827,6 +837,10 @@ QSize MessageDelegate::sizeHint(const QStyleOptionViewItem& option, const QModel
 
 	int width = opt.rect.width();
 
+	if (Message* m = static_cast<Message*>(index.internalPointer()); m->IsSeparator())
+	{
+		return QSize(width, GetSeparatorSize(option, index).height());
+	}
 	QSize mssize = GetMessageSize(opt, index);
 	int height = mssize.height();
 
@@ -847,9 +861,14 @@ void MessageDelegate::paint(QPainter* painter, const QStyleOptionViewItem& optio
 {
 	QStyleOptionViewItem opt(option);
 	initStyleOption(&opt, index);
+	painter->save();
 	const QRect& rect(option.rect);
 	const QRect& crect(rect.adjusted(gLeftMargin, gTopMargin, -gRightMargin, -gBottomMargin));
-	painter->save();
+	if (Message* m = static_cast<Message*>(index.internalPointer()); m->IsSeparator())
+	{
+		PaintSeparator(painter, rect, 0, opt, index);
+		return;
+	}
 	painter->setRenderHint(QPainter::Antialiasing, true);
 	painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
 	painter->setRenderHint(QPainter::TextAntialiasing, true);
@@ -863,6 +882,7 @@ void MessageDelegate::paint(QPainter* painter, const QStyleOptionViewItem& optio
 QWidget* MessageDelegate::createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
+	if (m->IsSeparator()) return nullptr;
 	auto* w = new MessageEditor(mListView, *m,
 								GetNameSize(option, index), GetDateTimeSize(option, index),
 								GetTextSize(option, index), GetThreadSize(option, index), parent->width(), m->GetThread() != nullptr);
@@ -1099,6 +1119,61 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 	return y + ypos - crect.top();
 }
 
+QString QDateToStr(const QDate& date)
+{
+	QLocale locale(QLocale("en_US"));
+	QString th;
+	switch (date.day())
+	{
+	case 1:
+	case 21:
+	case 31: th = "st"; break;
+	case 2:
+	case 22:  th = "nd"; break;
+	case 3:
+	case 23: th = "rd"; break;
+	default: th = "th"; break;
+	}
+	return locale.toString(date, "dddd, MMMM d'" + th + "' yyyy");
+}
+
+int MessageDelegate::PaintSeparator(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const
+{
+	QSize size = GetSeparatorSize(option, index);
+	QRect rect = crect;
+	option.rect.width();
+	painter->setPen(QColor(192, 192, 192));
+
+	//左の境界線
+	int linewidth = (crect.width() - size.width()) / 2 - gLeftMargin;
+	int ycenter = (crect.top() + crect.bottom()) / 2;
+	painter->drawLine(0, ycenter, linewidth, ycenter);
+	rect.translate(linewidth, 0);
+
+	//枠描画
+	painter->setRenderHint(QPainter::Antialiasing);
+	painter->drawRoundedRect(rect.left(), rect.top() + 6, size.width() + gLeftMargin + gRightMargin, crect.height() - 12, 11, 11);
+	rect.translate(gLeftMargin, gTopMargin);
+	painter->setRenderHint(QPainter::Antialiasing, false);
+
+	//日付描画
+	QFont f;
+	f.setBold(true);
+	f.setPointSizeF(GetBasePointSize());
+	painter->save();
+	painter->setFont(f);
+	painter->setPen(QColor(64, 64, 64));
+	Message* m = static_cast<Message*>(index.internalPointer());
+	painter->drawText(rect, QDateToStr(m->GetTimeStamp().date()));
+	rect.translate(size.width() + gRightMargin, 0);
+	painter->restore();
+
+	//右の境界線
+	painter->drawLine(rect.left(), ycenter, rect.right(), ycenter);
+	painter->restore();
+	return crect.height();
+}
+
 QSize MessageDelegate::GetMessageSize(const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	int width = option.rect.width();
@@ -1168,4 +1243,13 @@ QSize MessageDelegate::GetDocumentSize(const QStyleOptionViewItem& /*option*/, c
 		else height += gIconSize + gSpacing * 3 + 4;
 	}
 	return QSize(width, height - gSpacing);
+}
+QSize MessageDelegate::GetSeparatorSize(const QStyleOptionViewItem& option, const QModelIndex& index) const
+{
+	QFont f;
+	f.setBold(true);
+	f.setPointSizeF(GetBasePointSize());
+	Message* m = static_cast<Message*>(index.internalPointer());
+	QSize size = QFontMetrics(f).boundingRect(QDateToStr(m->GetTimeStamp().date())).size();
+	return QSize(size.width(), size.height() + gTopMargin + gBottomMargin);
 }
