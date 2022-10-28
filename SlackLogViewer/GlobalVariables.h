@@ -207,6 +207,7 @@ extern std::unique_ptr<QImage> gTempImage;
 extern std::unique_ptr<QImage> gDocIcon;
 extern std::unique_ptr<QSettings> gSettings;
 extern std::unique_ptr<double> gDPI;
+extern std::unique_ptr<bool> gDateSeparator;
 extern QString gWorkspace;//workspaceと言いつつ、ログファイルのフォルダ名のこと。jsonファイル中にワークスペース名があればよかったのだが。
 extern QString gResourceDir;
 extern QString gCacheDir;

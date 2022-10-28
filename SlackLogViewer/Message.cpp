@@ -212,6 +212,10 @@ Message::Message(Channel::Type type, int ch, const QJsonObject& o, QString threa
 {
 	mThreadTimeStampStr = std::move(threads_ts);
 }
+Message::Message(Channel::Type type, int ch, const QDateTime& datetime)
+	: mChannelType(type), mChannel(ch), mTimeStamp(datetime)
+{}
+
 void Message::CreateTextDocument() const
 {
 	mTextDocument = std::make_unique<QTextDocument>();
@@ -228,6 +232,17 @@ bool Message::IsParentMessage() const
 	if (mThread == nullptr) return false;
 	if (mThread->GetParent() != this) return false;
 	return true;
+}
+bool Message::IsSeparator() const
+{
+	//Separatorの場合、Jsonの解析を行っていないので、
+	//mTimeStampStr
+	//mUserID
+	//mHtmlMessage
+	// 
+	//などが空になっている。
+	if (mTimeStampStr.isEmpty()) return true;
+	return false;
 }
 
 Thread::Thread(const Message* parent, std::vector<QString>&& users)

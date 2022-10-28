@@ -342,6 +342,7 @@ void Construct(QSettings& s, const QDir& exedir)
 	if (!s.contains("Search/Range")) s.setValue("Search/Range", 0);
 	if (!s.contains("Search/Filter")) s.setValue("Search/Filter", QVariantList{ true, false, false, false });
 	if (!s.contains("Cache/Location")) s.setValue("Cache/Location", GetDefaultCacheDir(exedir));
+	if (!s.contains("Message/DateSeparator")) s.setValue("Message/DateSeparator", true);
 }
 
 QString ResourcePath(const char* filename)
@@ -382,6 +383,8 @@ std::unique_ptr<QImage> gTempImage = nullptr;
 std::unique_ptr<QImage> gDocIcon = nullptr;
 std::unique_ptr<QSettings> gSettings = nullptr;
 std::unique_ptr<double> gDPI = nullptr;
+std::unique_ptr<bool> gDateSeparator = nullptr;
+
 QString gWorkspace = QString();
 QString gResourceDir = QString();
 QString gCacheDir = QString();

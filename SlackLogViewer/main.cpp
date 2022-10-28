@@ -32,6 +32,8 @@ int main(int argc, char *argv[])
 	a.setFont(font);
 	gDPI = std::make_unique<double>(QGuiApplication::primaryScreen()->physicalDotsPerInch());
 
+	gDateSeparator = std::make_unique<bool>(gSettings->value("Message/DateSeparator").toBool());
+
 	MainWindow::Construct();
 	MainWindow::Get()->show();
 

@@ -38,7 +38,9 @@ class Message
 public:
 
 	Message(Channel::Type, int ch, const QJsonObject& o);
-	Message(Channel::Type, int ch, const QJsonObject& o, QString threads_ts);//これはリプライ用。
+	Message(Channel::Type, int ch, const QJsonObject& o, QString threads_ts);//リプライ用。
+
+	Message(Channel::Type, int ch, const QDateTime& datetime);//日付のセパレータ用。
 
 	Channel::Type GetChannelType() const { return mChannelType; }
 	int GetChannel() const { return mChannel; }
@@ -131,6 +133,7 @@ public:
 
 	bool IsReply() const;
 	bool IsParentMessage() const;
+	bool IsSeparator() const;
 
 private:
 
