@@ -14,7 +14,7 @@ class CacheStatus : public QFrame
 	Q_OBJECT
 public:
 
-	enum Type { TEXT, IMAGE, PDF, OTHERS, ALL, };
+	//enum Type { TEXT, IMAGE, PDF, OTHERS, ALL, };
 	enum Channel { ALLCHS, CURRENTCH, };
 
 	CacheStatus(QWidget* parent);
@@ -24,15 +24,16 @@ public:
 Q_SIGNALS:
 
 	//ch == -1は全チャンネル
-	void CacheAllRequested(CacheStatus::Channel ch, CacheStatus::Type type);
-	void ClearCacheRequested(CacheStatus::Type type);
+	void CacheAllRequested(CacheStatus::Channel ch, CacheType type);
+	void ClearCacheRequested(CacheType type);
 
 private:
 
 	QWidget* mParent;
 	std::vector<QLabel*> mNum;
 	std::vector<QLabel*> mSize;
-	inline static QStringList msTypeList = { "Text", "Image", "PDF", "Others", "All" };
+	inline static QVector<CacheType> msTypeList
+		= { CacheType::TEXT, CacheType::IMAGE, CacheType::PDF, CacheType::OTHERS, CacheType::ALL, };
 };
 
 struct CacheResult
@@ -42,7 +43,7 @@ struct CacheResult
 	size_t num_failure;
 };
 
-CacheResult CacheAllFiles(Channel::Type ch_type, int ch_index, MessageListView* mes, CacheStatus::Type type);
-void ClearCache(CacheStatus::Type type);
+CacheResult CacheAllFiles(Channel::Type ch_type, int ch_index, MessageListView* mes, CacheType type);
+void ClearCache(CacheType type);
 
 #endif

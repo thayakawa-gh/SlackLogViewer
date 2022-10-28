@@ -6,17 +6,18 @@
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
+#include <QEventLoop>
 #include <deque>
 
 class FileDownloader : public QObject
 {
 	Q_OBJECT
 public:
-	explicit FileDownloader(QUrl url);
+	//explicit FileDownloader(QUrl url);
 	FileDownloader();
 	virtual ~FileDownloader();
 
-	void SetUrl(QUrl url);
+	void RequestDownload(QUrl url);
 
 	QByteArray GetDownloadedData() const;
 
@@ -25,13 +26,13 @@ public:
 
 Q_SIGNALS:
 
-	void Finished();
+	//void Finished();
 	void Downloaded();
 	void DownloadFailed();
 
 private Q_SLOTS:
 
-	void ReplyFinished(QNetworkReply* reply);
+	void EmitSignals(QNetworkReply* reply);
 
 private:
 	QUrl mUrl;

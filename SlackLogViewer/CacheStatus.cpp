@@ -9,7 +9,7 @@
 #include "CacheStatus.h"
 #include "GlobalVariables.h"
 #include "MessageListView.h"
-#include "FileDownloader.h"
+#include "AttachedFile.h"
 #include <cmath>
 
 CacheStatus::CacheStatus(QWidget* parent)
@@ -26,7 +26,7 @@ CacheStatus::CacheStatus(QWidget* parent)
 	int count = 0;
 	for (const auto& x : msTypeList)
 	{
-		QLabel* label = new QLabel(x);
+		QLabel* label = new QLabel(CacheTypeToString(x));
 		label->setStyleSheet("border: 0px solid grey;");
 		QLabel* num = new QLabel();
 		num->setAlignment(Qt::AlignRight);
@@ -46,11 +46,11 @@ CacheStatus::CacheStatus(QWidget* parent)
 							  "QMenu::item:selected { background-color: palette(Highlight); }");
 		QAction* dlall = new QAction();
 		dlall->setText("All channels");
-		connect(dlall, &QAction::triggered, [this, count]() { CacheAllRequested(ALLCHS, (Type)count); });
+		connect(dlall, &QAction::triggered, [this, x]() { CacheAllRequested(ALLCHS, x); });
 		dlmenu->addAction(dlall);
 		QAction* dlcur = new QAction();
 		dlcur->setText("Current channel");
-		connect(dlcur, &QAction::triggered, [this, count]() { CacheAllRequested(CURRENTCH, (Type)count); });
+		connect(dlcur, &QAction::triggered, [this, x]() { CacheAllRequested(CURRENTCH, x); });
 		dlmenu->addAction(dlcur);
 		dl->setMenu(dlmenu);
 
@@ -58,7 +58,7 @@ CacheStatus::CacheStatus(QWidget* parent)
 		cl->setIcon(QIcon(ResourcePath("clear.svg")));
 		cl->setCursor(Qt::PointingHandCursor);
 		cl->setToolTip("Clear cache");
-		connect(cl, &QPushButton::clicked, [this, count]() { ClearCacheRequested((Type)count); });
+		connect(cl, &QPushButton::clicked, [this, x]() { ClearCacheRequested(x); });
 
 		status->addWidget(label, count, 0);
 		status->addWidget(num, count, 1);
@@ -94,7 +94,7 @@ void CacheStatus::showEvent(QShowEvent* event)
 		auto& x = msTypeList[i];
 		QLabel* num = mNum[i];
 		QLabel* byte = mSize[i];
-		if (x != "All")
+		if (x != CacheType::ALL)
 		{
 			//num of files
 			QDir dir(CachePath(x));
@@ -117,21 +117,21 @@ void CacheStatus::showEvent(QShowEvent* event)
 	QFrame::showEvent(event);
 }
 
-CacheResult CacheAllFiles(Channel::Type ch_type, int ch, MessageListView* mes, CacheStatus::Type type)
+CacheResult CacheAllFiles(Channel::Type ch_type, int ch, MessageListView* mes, CacheType type)
 {
 	if (!mes->IsConstructed()) mes->Construct(ch_type, ch);
 	size_t downloaded = 0;
 	size_t exist = 0;
 	size_t failure = 0;
 	size_t* res_set[3] = { &downloaded, &exist, &failure };
-	bool text = type == CacheStatus::TEXT || type == CacheStatus::ALL;
-	bool image = type == CacheStatus::IMAGE || type == CacheStatus::ALL;
-	bool pdf = type == CacheStatus::PDF || type == CacheStatus::ALL;
-	bool others = type == CacheStatus::OTHERS || type == CacheStatus::ALL;
+	bool text = type == CacheType::TEXT || type == CacheType::ALL;
+	bool image = type == CacheType::IMAGE || type == CacheType::ALL;
+	bool pdf = type == CacheType::PDF || type == CacheType::ALL;
+	bool others = type == CacheType::OTHERS || type == CacheType::ALL;
 
 	//ダウンロード成功で0、既にファイルが有れば1、ダウンロード失敗で2を返す。
 	//関係ないファイルだった場合（ダウンロード指定がtextなのに保有ファイルがimageなど）は3を返す。
-	auto dl = [text, image, pdf, others](std::unique_ptr<AttachedFile>& f)
+	/*auto dl = [text, image, pdf, others](std::unique_ptr<AttachedFile>& f)
 	{
 		if (text && f->IsText() ||
 			image && f->IsImage() ||
@@ -166,19 +166,23 @@ CacheResult CacheAllFiles(Channel::Type ch_type, int ch, MessageListView* mes, C
 			return 0;
 		}
 		return 3;
-	};
+	};*/
+	auto f_downloaded = [&downloaded](const AttachedFile*) { ++downloaded; };
+	auto f_exist = [&exist](const AttachedFile*) { ++exist; };
+	auto f_failure = [&failure](const AttachedFile*) { ++failure; };
+
 	for (auto& m : mes->GetMessages())
 	{
 		for (auto& f : m->GetFiles())
 		{
-			int res = 0;
-			for (int i = 0; i < 3; ++i)
+			if (text && f->IsText() ||
+				image && f->IsImage() ||
+				pdf && f->IsPDF() ||
+				others && f->IsOther())
 			{
-				res = dl(f);
-				if (res != 2) break;
+				f->Download(f_exist, nullptr, f_downloaded, f_failure);
+				f->Wait();
 			}
-			if (res == 3) continue;
-			++(*res_set[res]);
 		}
 		const Thread* th = m->GetThread();
 		if (!th) continue;
@@ -186,22 +190,22 @@ CacheResult CacheAllFiles(Channel::Type ch_type, int ch, MessageListView* mes, C
 		{
 			for (auto& tf : t->GetFiles())
 			{
-				int res = 0;
-				for (int i = 0; i < 3; ++i)
+				if (text && tf->IsText() ||
+					image && tf->IsImage() ||
+					pdf && tf->IsPDF() ||
+					others && tf->IsOther())
 				{
-					res = dl(tf);
-					if (res != 2) break;
+					tf->Download(f_exist, nullptr, f_downloaded, f_failure);
+					tf->Wait();
 				}
-				if (res == 3) continue;
-				++(*res_set[res]);
 			}
 		}
 	}
 	return { downloaded, exist, failure };
 }
-void ClearCache(CacheStatus::Type type)
+void ClearCache(CacheType type)
 {
-	auto del = [](const char* type)
+	auto del = [](CacheType type)
 	{
 		QString path = CachePath(type);
 		QDir dir(path);
@@ -211,8 +215,8 @@ void ClearCache(CacheStatus::Type type)
 			QFile::remove(f.filePath());
 		}
 	};
-	if (type == CacheStatus::TEXT   || type == CacheStatus::ALL) del("Text");
-	if (type == CacheStatus::IMAGE  || type == CacheStatus::ALL) del("Image");
-	if (type == CacheStatus::PDF    || type == CacheStatus::ALL) del("PDF");
-	if (type == CacheStatus::OTHERS || type == CacheStatus::ALL) del("Others");
+	if (type == CacheType::TEXT   || type == CacheType::ALL) del(CacheType::TEXT);
+	if (type == CacheType::IMAGE  || type == CacheType::ALL) del(CacheType::IMAGE);
+	if (type == CacheType::PDF    || type == CacheType::ALL) del(CacheType::PDF);
+	if (type == CacheType::OTHERS || type == CacheType::ALL) del(CacheType::OTHERS);
 }

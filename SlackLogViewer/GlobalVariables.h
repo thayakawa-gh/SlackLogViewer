@@ -149,12 +149,58 @@ std::pair<Channel::Type, int> RowToIndex(int row);
 void Construct(QSettings& s, const QDir& exedir);
 
 QString ResourcePath(const char* filename);
+
+enum class CacheType { TEXT, IMAGE, PDF, OTHERS, ALL, };
+QString CacheTypeToString(CacheType type);
+/*
 QString CachePath(const char* type, const char* filename);
 QString CachePath(const char* type, const QString& filename);
 QString CachePath(const QString& type, const char* filename);
 QString CachePath(const QString& type, const QString& filename);
 QString CachePath(const char* type);
 QString CachePath(const QString& type);
+*/
+QString CachePath(CacheType type);
+
+QString IconPath(const QString& id);
+QString IconPath();
+
+inline bool Contains(const QString& src, const QString& phrase, bool case_)
+{
+	return src.contains(phrase, case_ ? Qt::CaseSensitive : Qt::CaseInsensitive);
+}
+inline bool Contains(const QString& src, const QStringList& keys, bool case_, bool all)
+{
+	bool found = all;
+	for (const auto& k : keys)
+	{
+		bool contains = src.contains(k, case_ ? Qt::CaseSensitive : Qt::CaseInsensitive);
+		//QTextCursor c = d->find(k, 0, f);
+		if (all)
+		{
+			//一つでも含まれなかった場合は見つからなかった扱い。
+			if (!contains)
+			{
+				found = false;
+				break;
+			}
+		}
+		else
+		{
+			//一つでも含まれればOK。
+			if (contains)
+			{
+				found = true;
+				break;
+			}
+		}
+	}
+	return found;
+}
+inline bool Contains(const QString& src, const QRegularExpression& regex)
+{
+	return src.contains(regex);
+}
 
 extern std::unique_ptr<User> gEmptyUser;
 extern std::unique_ptr<QImage> gTempImage;

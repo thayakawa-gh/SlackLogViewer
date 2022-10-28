@@ -1,10 +1,6 @@
 #include <QEventLoop>
 #include "FileDownloader.h"
 
-FileDownloader::FileDownloader(QUrl url)
-{
-	SetUrl(url);
-}
 FileDownloader::FileDownloader()
 	: mError(QNetworkReply::NetworkError::NoError),
 	mManager(nullptr), mRequest(nullptr), mReply(nullptr)
@@ -15,12 +11,13 @@ FileDownloader::~FileDownloader()
 	delete mManager;
 	delete mRequest;
 }
-void FileDownloader::SetUrl(QUrl url)
+void FileDownloader::RequestDownload(QUrl url)
 {
 	mUrl = url;
 	mManager = new QNetworkAccessManager(this);
 	mRequest = new QNetworkRequest(mUrl);
-	connect(mManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(ReplyFinished(QNetworkReply*)));
+	connect(mManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(EmitSignals(QNetworkReply*)));
+	//AddSlot(when_downloaded, when_failed);
 	//リダイレクトを許す。でないとダウンロードできないファイルがある。
 	mRequest->setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
 	mReply = mManager->get(*mRequest);
@@ -39,7 +36,7 @@ bool FileDownloader::Wait()
 	return res;
 }
 
-void FileDownloader::ReplyFinished(QNetworkReply* reply)
+void FileDownloader::EmitSignals(QNetworkReply* reply)
 {
 	assert(reply == mReply);
 	if (reply->error() == QNetworkReply::NoError)

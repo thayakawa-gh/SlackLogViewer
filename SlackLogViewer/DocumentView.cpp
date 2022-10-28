@@ -8,7 +8,7 @@
 #include <QtWebEngineWidgets>
 #include "DocumentView.h"
 #include "MessageListView.h"
-#include "FileDownloader.h"
+#include "AttachedFile.h"
 
 DocumentView::DocumentView()
 {
@@ -146,7 +146,9 @@ TextView::TextView()
 
 void TextView::OpenText(const AttachedFile* t)
 {
-	QFile file(CachePath("Text", t->GetID()));
+	if (!t->CacheFileExists()) mTextEdit->setPlainText("Downloading");
+	QString path = t->GetCacheFilePath();
+	QFile file(path);
 	if (file.exists())
 	{
 		this->Open(t);
@@ -177,7 +179,7 @@ PDFView::~PDFView()
 
 void PDFView::OpenPDF(const AttachedFile* t)
 {
-	QString path = CachePath("PDF", t->GetID());
+	QString path = t->GetCacheFilePath();
 	QFileInfo file(path);
 	if (file.exists())
 	{

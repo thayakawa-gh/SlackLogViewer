@@ -6,7 +6,7 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include "Message.h"
-#include "FileDownloader.h"
+#include "AttachedFile.h"
 #include "emoji.h"
 
 void MrkdwnToHtml_impl(QString& str)
@@ -140,105 +140,6 @@ QString MrkdwnToHtml(const QString& str)
 		"\"pt>" + s.join("") + "</font>";
 }
 
-AttachedFile::AttachedFile(Type type, const QJsonObject& o)
-{
-	mType = type;
-	mFileSize = o.find("size").value().toInt();
-	mPrettyType = o.find("pretty_type").value().toString();
-	mUrl = o.find("url_private_download").value().toString();
-	mID = o.find("id").value().toString();
-	mFileName = o.find("name").value().toString();
-	mExtension = "." + o.find("filetype").value().toString();
-	mUserID = o.find("user").value().toString();
-	QDateTime dt;
-	dt.setTime_t(o.find("timestamp").value().toInt());
-	mTimeStampStr = dt.toString("yyyy/MM/dd hh:mm:ss");
-}
-ImageFile::ImageFile(const QJsonObject& o)
-	: AttachedFile(IMAGE, o)
-{}
-void ImageFile::RequestDownload(FileDownloader* fd)
-{
-	if (HasImage())
-	{
-		Q_EMIT fd->Finished();
-		fd->deleteLater();
-		return;
-	}
-	QFile i(mID);
-	if (i.exists())
-	{
-		SetImage(i.readAll());
-		Q_EMIT fd->Finished();
-		fd->deleteLater();
-		return;
-	}
-	//スロットが呼ばれるタイミングは遅延しているので、
-	//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
-	fd->SetUrl(mUrl);
-	QObject::connect(fd, &FileDownloader::Downloaded, [this, fd]()
-					 {
-						 QByteArray f = fd->GetDownloadedData();
-						 QFile o(CachePath("Image", GetID()));
-						 o.open(QIODevice::WriteOnly);
-						 o.write(f);
-						 SetImage(f);
-						 Q_EMIT fd->Finished();
-						 fd->deleteLater();
-					 });
-	QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]
-					 {
-						 fd->deleteLater();
-					 });
-}
-bool ImageFile::LoadImage()
-{
-	if (HasImage()) return true;
-	QFile f(CachePath("Image", GetID()));
-	if (!f.exists()) return false;
-	if (!f.open(QIODevice::ReadOnly)) return false;
-	SetImage(f.readAll());
-	return true;
-}
-
-TextFile::TextFile(const QJsonObject& o)
-	: AttachedFile(TEXT, o)
-{}
-void TextFile::RequestDownload(FileDownloader* fd)
-{
-	if (HasText())
-	{
-		Q_EMIT fd->Finished();
-		fd->deleteLater();
-		return;
-	}
-	//スロットが呼ばれるタイミングは遅延しているので、
-	//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
-	fd->SetUrl(mUrl);
-	QObject::connect(fd, &FileDownloader::Downloaded, [this, fd]()
-					 {
-						 QByteArray f = fd->GetDownloadedData();
-						 QFile o(CachePath("Image", GetID()));
-						 o.open(QIODevice::WriteOnly);
-						 o.write(f);
-						 SetText(f);
-						 Q_EMIT fd->Finished();
-						 fd->deleteLater();
-					 });
-	QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]
-					 {
-						 fd->deleteLater();
-					 });
-}
-
-PDFFile::PDFFile(const QJsonObject& o)
-	: AttachedFile(PDF, o)
-{}
-
-OtherFile::OtherFile(const QJsonObject& o)
-	: AttachedFile(OTHER, o)
-{}
-
 Message::Message(Channel::Type type, int ch, const QJsonObject& o)
 	: mChannelType(type), mChannel(ch), mRow(0), mThread(nullptr)
 {
@@ -281,10 +182,10 @@ Message::Message(Channel::Type type, int ch, const QJsonObject& o)
 		for (const auto& a : ar)
 		{
 			const QJsonObject& f = a.toObject();
-			const QString& type = f.find("mimetype").value().toString();
-			if (type.contains("text")) mFiles.emplace_back(std::make_unique<TextFile>(f));
-			else if (type.contains("image")) mFiles.emplace_back(std::make_unique<ImageFile>(f));
-			else if (type.contains("pdf")) mFiles.emplace_back(std::make_unique<PDFFile>(f));
+			const QString& ftype = f.find("mimetype").value().toString();
+			if (ftype.contains("text")) mFiles.emplace_back(std::make_unique<TextFile>(f));
+			else if (ftype.contains("image")) mFiles.emplace_back(std::make_unique<ImageFile>(f));
+			else if (ftype.contains("pdf")) mFiles.emplace_back(std::make_unique<PDFFile>(f));
 			else  mFiles.emplace_back(std::make_unique<OtherFile>(f));
 		}
 	}

@@ -354,10 +354,10 @@ MenuBar::MenuBar(QMenu* menu, QWidget* parent)
 		action->setDefaultWidget(state);
 		cachebutton->addAction(action);
 		layout->addWidget(cachebutton);
-		connect(state, SIGNAL(CacheAllRequested(CacheStatus::Channel, CacheStatus::Type)),
-				this, SIGNAL(CacheAllRequested(CacheStatus::Channel, CacheStatus::Type)));
-		connect(state, SIGNAL(ClearCacheRequested(CacheStatus::Type)),
-				this, SIGNAL(ClearCacheRequested(CacheStatus::Type)));
+		connect(state, SIGNAL(CacheAllRequested(CacheStatus::Channel, CacheType)),
+				this, SIGNAL(CacheAllRequested(CacheStatus::Channel, CacheType)));
+		connect(state, SIGNAL(ClearCacheRequested(CacheType)),
+				this, SIGNAL(ClearCacheRequested(CacheType)));
 	}
 	setLayout(layout);
 }

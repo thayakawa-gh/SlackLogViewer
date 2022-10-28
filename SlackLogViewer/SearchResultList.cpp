@@ -15,7 +15,7 @@
 #include <QtConcurrent>
 #include <execution>
 
-std::vector<std::shared_ptr<Message>> SearchExactPhrase(Channel::Type ch_type, int ch, MessageListView* mes, QString phrase, SearchMode mode)
+std::vector<std::shared_ptr<Message>> SearchExactPhrase(Channel::Type /*ch_type*/, int /*ch*/, MessageListView* mes, QString phrase, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
 	bool case_sensitive = mode.GetCaseMode() == SearchMode::SENSITIVE ? true : false;
@@ -38,7 +38,7 @@ std::vector<std::shared_ptr<Message>> SearchExactPhrase(Channel::Type ch_type, i
 	}
 	return res;
 }
-std::vector<std::shared_ptr<Message>> SearchWords(Channel::Type ch_type, int ch, MessageListView* mes, QStringList keys, SearchMode mode)
+std::vector<std::shared_ptr<Message>> SearchWords(Channel::Type /*ch_type*/, int /*ch*/, MessageListView* mes, QStringList keys, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
 	bool case_sensitive = mode.GetCaseMode() == SearchMode::SENSITIVE ? true : false;
@@ -63,7 +63,7 @@ std::vector<std::shared_ptr<Message>> SearchWords(Channel::Type ch_type, int ch,
 	}
 	return res;
 }
-std::vector<std::shared_ptr<Message>> SearchWithRegex(Channel::Type ch_type, int ch, MessageListView* mes, QRegularExpression regex, SearchMode mode)
+std::vector<std::shared_ptr<Message>> SearchWithRegex(Channel::Type /*ch_type*/, int /*ch*/, MessageListView* mes, QRegularExpression regex, SearchMode mode)
 {
 	std::vector<std::shared_ptr<Message>> res;
 	bool body = mode.Body();
@@ -157,41 +157,41 @@ std::pair<size_t, bool> SearchResultListView::Search(Channel::Type ch_type, int 
 
 	std::vector<std::shared_ptr<Message>> res;
 	QList<QFuture<std::vector<std::shared_ptr<Message>>>> fs;
-	for (auto [ ch_type, ch_index ] : chs)
+	for (auto [ ch_type_, ch_index_ ] : chs)
 	{
 		//まだチャンネルが読み込まれていない場合、ここで読み込んでおく。
 		//チャンネルの読み込み、検索はどちらもマルチスレッドに行われるので、一応分離しておく。
-		int row = IndexToRow(ch_type, ch_index);
+		int row = IndexToRow(ch_type_, ch_index_);
 		MessageListView* mes = static_cast<MessageListView*>(stack->widget(row));
-		if (!mes->IsConstructed()) mes->Construct(ch_type, ch_index);
+		if (!mes->IsConstructed()) mes->Construct(ch_type_, ch_index_);
 	}
 	if (mode.GetRegexMode() == SearchMode::REGEX)
 	{
 		QRegularExpression regex(key);
-		for (auto [ch_type, ch_index] : chs)
+		for (auto [ch_type_, ch_index_] : chs)
 		{
-			int row = IndexToRow(ch_type, ch_index);
+			int row = IndexToRow(ch_type_, ch_index_);
 			MessageListView* mes = static_cast<MessageListView*>(stack->widget(row));
-			fs.append(QtConcurrent::run(SearchWithRegex, ch_type, ch_index, mes, regex, mode));
+			fs.append(QtConcurrent::run(SearchWithRegex, ch_type_, ch_index_, mes, regex, mode));
 		}
 	}
 	else if (mode.GetMatchMode() == SearchMode::EXACTPHRASE)
 	{
-		for (auto [ch_type, ch_index] : chs)
+		for (auto [ch_type_, ch_index_] : chs)
 		{
-			int row = IndexToRow(ch_type, ch_index);
+			int row = IndexToRow(ch_type_, ch_index_);
 			MessageListView* mes = static_cast<MessageListView*>(stack->widget(row));
-			fs.append(QtConcurrent::run(SearchExactPhrase, ch_type, ch_index, mes, key, mode));
+			fs.append(QtConcurrent::run(SearchExactPhrase, ch_type_, ch_index_, mes, key, mode));
 		}
 	}
 	else
 	{
 		QStringList keys = key.split(QRegularExpression("\\s"));
-		for (auto [ch_type, ch_index] : chs)
+		for (auto [ch_type_, ch_index_] : chs)
 		{
-			int row = IndexToRow(ch_type, ch_index);
+			int row = IndexToRow(ch_type_, ch_index_);
 			MessageListView* mes = static_cast<MessageListView*>(stack->widget(row));
-			fs.append(QtConcurrent::run(SearchWords, ch_type, ch_index, mes, keys, mode));
+			fs.append(QtConcurrent::run(SearchWords, ch_type_, ch_index_, mes, keys, mode));
 		}
 	}
 	for (auto& f : fs)

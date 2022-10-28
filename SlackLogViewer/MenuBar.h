@@ -117,8 +117,8 @@ public:
 Q_SIGNALS:
 
 	void SearchRequested(QString key, SearchMode s);
-	void CacheAllRequested(CacheStatus::Channel ch, CacheStatus::Type type);
-	void ClearCacheRequested(CacheStatus::Type type);
+	void CacheAllRequested(CacheStatus::Channel ch, CacheType type);
+	void ClearCacheRequested(CacheType type);
 
 private Q_SLOTS:
 

@@ -135,8 +135,8 @@ QVector<std::pair<QDateTime, QString>> GetMessageFileList(const QString& folder_
 	if (info.isDir())
 	{
 		QDir dir = gSettings->value("History/LastLogFilePath").toString() + "\\" + channel;
-		auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
-		int ch_index = ch_it - gChannelVector.begin();
+		//auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
+		//int ch_index = ch_it - gChannelVector.begin();
 		QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
 		QStringList filenames = dir.entryList(ext, QDir::Files, QDir::Name);
 		res.reserve(filenames.size());
@@ -154,17 +154,17 @@ QVector<std::pair<QDateTime, QString>> GetMessageFileList(const QString& folder_
 		QuaZip zip(folder_or_zip);
 		zip.open(QuaZip::mdUnzip);
 		zip.setFileNameCodec("UTF-8");
-		QuaZipFileInfo64 info;
+		QuaZipFileInfo64 info64;
 		for (bool b = zip.goToFirstFile(); b; b = zip.goToNextFile())
 		{
-			zip.getCurrentFileInfo(&info);
-			if (!info.name.startsWith(channel)) continue;
-			if (info.name.endsWith("/")) continue;
-			int begin = info.name.indexOf('/');
-			int end = info.name.lastIndexOf('.');
-			auto dstr = info.name.mid(begin + 1, end - begin - 1);
+			zip.getCurrentFileInfo(&info64);
+			if (!info64.name.startsWith(channel)) continue;
+			if (info64.name.endsWith("/")) continue;
+			int begin = info64.name.indexOf('/');
+			int end = info64.name.lastIndexOf('.');
+			auto dstr = info64.name.mid(begin + 1, end - begin - 1);
 			QDateTime d = QDateTime::fromString(dstr, Qt::ISODate);
-			res.push_back(std::pair(d, info.name));
+			res.push_back(std::pair(d, info64.name));
 		}
 	}
 	//ファイルを日付順にソートする。
@@ -247,6 +247,7 @@ const Channel& GetChannel(Channel::Type type, int index)
 	if (type == Channel::CHANNEL) return gChannelVector[index];
 	else if (type == Channel::DIRECT_MESSAGE) return gDMUserVector[index];
 	else if (type == Channel::GROUP_MESSAGE) return gGMUserVector[index];
+	else throw FatalError("unknown channel type");
 }
 const Channel& GetChannel(int row)
 {
@@ -347,31 +348,34 @@ QString ResourcePath(const char* filename)
 {
 	return gResourceDir + filename;
 }
-QString CachePath(const char* type, const char* filename)
+
+QString CacheTypeToString(CacheType type)
 {
-	return gCacheDir + gWorkspace + "/" + type + "/" + filename;
-}
-QString CachePath(const char* type, const QString& filename)
-{
-	return gCacheDir + gWorkspace + "/" + type + "/" + filename;
-}
-QString CachePath(const QString& type, const char* filename)
-{
-	return gCacheDir + gWorkspace + "/" + type + "/" + filename;
-}
-QString CachePath(const QString& type, const QString& filename)
-{
-	return gCacheDir + gWorkspace + "/" + type + "/" + filename;
-}
-QString CachePath(const char* type)
-{
-	return gCacheDir + gWorkspace + "/" + type;
-}
-QString CachePath(const QString& type)
-{
-	return gCacheDir + gWorkspace + "/" + type;
+	switch (type)
+	{
+	case CacheType::TEXT: return "Text";
+	case CacheType::IMAGE: return "Image";
+	case CacheType::PDF: return "PDF";
+	case CacheType::OTHERS: return "Others";
+	case CacheType::ALL: return "All";
+	default: throw FatalError("unknown cache type");
+	}
 }
 
+QString CachePath(CacheType type)
+{
+	if (type == CacheType::ALL) throw FatalError("CacheFileType::ALL cannot convert to a path");
+	return gCacheDir + gWorkspace + "/" + CacheTypeToString(type);
+}
+
+QString IconPath(const QString& id)
+{
+	return gCacheDir + gWorkspace + "/Icon/" + id;
+}
+QString IconPath()
+{
+	return gCacheDir + gWorkspace + "/Icon";
+}
 
 std::unique_ptr<User> gEmptyUser = nullptr;
 std::unique_ptr<QImage> gTempImage = nullptr;

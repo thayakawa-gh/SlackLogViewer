@@ -1,8 +1,8 @@
 #include <filesystem>
 #include "MessageListView.h"
-#include "FileDownloader.h"
 #include "GlobalVariables.h"
 #include "SlackLogViewer.h"
+#include "AttachedFile.h"
 #include <QTextDocument>
 #include <QAbstractTextDocumentLayout>
 #include <QPainter>
@@ -21,11 +21,38 @@
 #include <quazip/quazipfile.h>
 #include "emoji.h"
 
+//添付ファイルのダウンロードボタンを押したときに呼ばれる処理。
+//1. ダイアログから保存先とファイル名を指定させる。
+//2. ファイルのダウンロードを要求。
+//3a. 既にダウンロードできているorダウンロードに成功した場合は指定先に保存する。
+//3b. ダウンロードに失敗した場合はエラーを表示する。
+void DownloadCacheFile(const AttachedFile* file)
+{
+	QString path = QFileDialog::getSaveFileName(MainWindow::Get(),
+												"download",
+												gSettings->value("History/LastLogFilePath").toString() + "/" + file->GetFileName());
+	if (path.isEmpty()) return;
+
+	auto save = [path](const AttachedFile* a)
+	{
+		QFile f(a->GetCacheFilePath());
+		if (!f.exists()) throw FatalError("cached file cannot open");
+		f.copy(path);
+	};
+	auto fail = [](const AttachedFile*)
+	{
+		QErrorMessage* m = new QErrorMessage(MainWindow::Get());
+		m->showMessage("Download failed.");
+	};
+	file->Download(save, nullptr, save, fail);
+	file->Wait();
+}
+
 ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
 	: mImage(image)
 {
 	QSize size;
-	bool isnull = image->GetImage().isNull();
+	bool isnull = !image->IsLoaded();
 	if (isnull)
 	{
 		QPixmap p = QPixmap::fromImage(gTempImage->scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
@@ -53,27 +80,9 @@ ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
 		download->setFixedHeight(height);
 		QRect rect = this->rect();
 		download->move(rect.right() - width - gSpacing, rect.top() + gSpacing);
-		connect(download, &QPushButton::clicked, [i = mImage]()
+		connect(download, &QPushButton::clicked, [image]()
 				{
-					QString path = QFileDialog::getSaveFileName(MainWindow::Get(),
-																"download",
-																gSettings->value("History/LastLogFilePath").toString() + "/" + i->GetFileName());
-					if (path.isEmpty()) return;
-					FileDownloader* fd = new FileDownloader(i->GetUrl());
-					QObject::connect(fd, &FileDownloader::Downloaded, [fd, path]()
-									 {
-										 QByteArray f = fd->GetDownloadedData();
-										 QFile o(path);
-										 o.open(QIODevice::WriteOnly);
-										 o.write(f);
-										 fd->deleteLater();
-									 });
-					QObject::connect(fd, &FileDownloader::DownloadFailed, [fd]()
-									 {
-										 QErrorMessage* m = new QErrorMessage(MainWindow::Get());
-										 m->showMessage("Download failed.");
-										 fd->deleteLater();
-									 });
+					DownloadCacheFile(image);
 				});
 	}
 }
@@ -132,42 +141,9 @@ DocumentWidget::DocumentWidget(const AttachedFile* file, int /*pwidth*/)
 	download->setFixedHeight(height);
 	QRect rect = this->rect();
 	download->move(rect.right() - width - gSpacing, rect.top() + gSpacing);
-	connect(download, &QPushButton::clicked, [i = mFile]()
+	connect(download, &QPushButton::clicked, [file]()
 			{
-				QString path = QFileDialog::getSaveFileName(MainWindow::Get(),
-															"download",
-															gSettings->value("History/LastLogFilePath").toString() + "/" + i->GetFileName());
-				if (path.isEmpty()) return;
-
-				QString orgpath;
-				if (i->IsText()) orgpath = CachePath("Text", i->GetID());
-				else if (i->IsImage()) orgpath = CachePath("Image", i->GetID());
-				else if (i->IsPDF()) orgpath = CachePath("PDF", i->GetID());
-				else if (i->IsOther()) orgpath = CachePath("Others", i->GetID());
-				else throw FatalError("unknown file type");
-				QFile f(orgpath);
-				if (f.exists())
-				{
-					f.copy(path);
-				}
-				else
-				{
-					FileDownloader* fd = new FileDownloader(i->GetUrl());
-					QObject::connect(fd, &FileDownloader::Downloaded, [fd, path]()
-									 {
-										 QByteArray f = fd->GetDownloadedData();
-										 QFile o(path);
-										 o.open(QIODevice::WriteOnly);
-										 o.write(f);
-										 fd->deleteLater();
-									 });
-					QObject::connect(fd, &FileDownloader::DownloadFailed, [fd]()
-									 {
-										 QErrorMessage* m = new QErrorMessage(MainWindow::Get());
-										 m->showMessage("Download failed.");
-										 fd->deleteLater();
-									 });
-				}
+				DownloadCacheFile(file);
 			});
 }
 void DocumentWidget::mousePressEvent(QMouseEvent*)
@@ -262,10 +238,10 @@ void MessageListView::Construct(Channel::Type type, int index)
 			QDateTime d = QDateTime::fromString(dtstr, Qt::ISODate);
 			QFile file(folder_or_zip + "/" + dirname + "/" + name);
 			if (!file.open(QIODevice::ReadOnly)) exit(-1);
-			QByteArray data = file.readAll();
+			QByteArray dat = file.readAll();
 			messages_and_replies.insert(std::pair(std::move(d),
 												  QtConcurrent::run(&Construct_parallel,
-																	type, index, std::move(data),
+																	type, index, std::move(dat),
 																	&mThreads, &thmtx)));
 		}
 	}
@@ -275,16 +251,16 @@ void MessageListView::Construct(Channel::Type type, int index)
 		QuaZip zip(folder_or_zip);
 		zip.open(QuaZip::mdUnzip);
 		zip.setFileNameCodec("UTF-8");
-		QuaZipFileInfo64 info;
+		QuaZipFileInfo64 info64;
 		for (bool b = zip.goToFirstFile(); b; b = zip.goToNextFile())
 		{
-			zip.getCurrentFileInfo(&info);
-			if (!info.name.endsWith(".json")) continue;
+			zip.getCurrentFileInfo(&info64);
+			if (!info64.name.endsWith(".json")) continue;
 			//ここはQDirではなくstd::filesystem::pathを使う。
 			//というのも、QDirは存在しないディレクトリを扱えないため。
 			//今、dirはzipファイル内の構造を示しており、つまり実在しないディレクトリである。
 			//したがって、std::filesystem::pathでないと扱うことが出来ない。
-			std::filesystem::path dir = (const char*)info.name.toLocal8Bit();
+			std::filesystem::path dir = (const char*)info64.name.toLocal8Bit();
 			auto qstr = QString::fromStdString(dir.parent_path().u8string());
 			if (qstr != dirname) continue;
 			auto jsonname = dir.stem();
@@ -292,10 +268,10 @@ void MessageListView::Construct(Channel::Type type, int index)
 			QString dtstr = d.toString();
 			QuaZipFile file(&zip);
 			file.open(QIODevice::ReadOnly);
-			QByteArray data = file.readAll();
+			QByteArray dat = file.readAll();
 			messages_and_replies.insert(std::pair(std::move(d),
 												  QtConcurrent::run(&Construct_parallel,
-																	type, index, std::move(data),
+																	type, index, std::move(dat),
 																	&mThreads, &thmtx)));
 		}
 	}
@@ -1013,25 +989,23 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 				painter->drawPixmap(crect.left() + gIconSize + gSpacing + 2, y + 2, width, tmp.height(), tmp);
 				painter->drawRect(crect.left() + gIconSize + gSpacing + 1, y + 1, width + 2, tmp.height() + 2);
 			};
-			bool exists = i->LoadImage();
-			if (exists)
+
+			auto* model = static_cast<MessageListModel*>(mListView->model());
+			auto notify_fin_download = [model, index](const AttachedFile*)
 			{
-				//ファイルがキャッシュ内に見つかったor既に読み込まれているので、その画像を取得しサムネイルを描画する。
-				//QPixmap tmp = QPixmap::fromImage(i->GetImage().scaledToHeight(gMaxThumbnailHeight));
-				draw(painter, crect, y, i->GetImage().scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
-			}
-			else
+				Q_EMIT model->ImageDownloadFinished(index, index, QVector<int>());
+			};
+			auto draw_immediately = [draw, painter, crect, y](const AttachedFile* file)
 			{
-				//ファイルが見つからないので、一時的にダウンロード待ち画像を描画する。
-				FileDownloader* fd = new FileDownloader();
-				auto* model = static_cast<MessageListModel*>(mListView->model());
-				connect(fd, &FileDownloader::Finished, [model, index]()
-						{
-							Q_EMIT model->ImageDownloadFinished(index, index, QVector<int>());
-						});
-				i->RequestDownload(fd);
+				const ImageFile* image = static_cast<const ImageFile*>(file);
+				draw(painter, crect, y, image->GetImage().scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
+			};
+			auto draw_loading = [draw, painter, crect, y](const AttachedFile* file)
+			{
 				draw(painter, crect, y, gTempImage->scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
-			}
+			};
+
+			i->DownloadAndOpen(draw_immediately, draw_loading, notify_fin_download, nullptr);
 
 			y += gMaxThumbnailHeight + gSpacing + 4;
 		}
@@ -1040,27 +1014,7 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 			if (f->IsText() || f->IsPDF())
 			{
 				//一応キャッシュフォルダにダウンロードしておく。
-				QString dir = f->IsText() ? "Text" : "PDF";
-				QString fpath = CachePath(dir, f->GetID());
-				QFile file(fpath);
-				if (!file.exists())
-				{
-					FileDownloader* fd = new FileDownloader(f->GetUrl());
-					//スロットが呼ばれるタイミングは遅延しているので、
-					//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
-					QObject::connect(fd, &FileDownloader::Downloaded, [this, fd, fpath, index, &f]()
-					{
-						QByteArray ba = fd->GetDownloadedData();
-						QFile o(fpath);
-						o.open(QIODevice::WriteOnly);
-						o.write(ba);
-						fd->deleteLater();
-					});
-					QObject::connect(fd, &FileDownloader::DownloadFailed, [this, fd]()
-					{
-						fd->deleteLater();
-					});
-				}
+				f->Download(nullptr, nullptr, nullptr, nullptr);
 			}
 			//画像、テキスト以外は適当に。
 			painter->setPen(QPen(QBrush(QColor(160, 160, 160)), 2));

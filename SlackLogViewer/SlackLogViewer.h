@@ -56,8 +56,8 @@ public Q_SLOTS:
 	void Search(const QString& key, SearchMode mode);
 
 	//ch == -1のときは全チャンネル対象。
-	void CacheAllFiles(CacheStatus::Channel ch, CacheStatus::Type type);
-	void ClearCache(CacheStatus::Type type);
+	void CacheAllFiles(CacheStatus::Channel ch, CacheType type);
+	void ClearCache(CacheType type);
 
 	void CloseDocument();
 

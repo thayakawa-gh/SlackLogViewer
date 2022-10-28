@@ -315,7 +315,7 @@ void SlackLogViewer::LoadUsers()
 		User user(o);
 		auto it = gUsers.insert(user.GetID(), std::move(user));
 
-		QFile icon(CachePath("Icon", user.GetID()));
+		QFile icon(IconPath(user.GetID()));
 		if (icon.exists())
 		{
 			icon.open(QIODevice::ReadOnly);
@@ -323,13 +323,14 @@ void SlackLogViewer::LoadUsers()
 		}
 		else
 		{
-			FileDownloader* fd = new FileDownloader(user.GetIconUrl());
+			FileDownloader* fd = new FileDownloader();
+			fd->RequestDownload(user.GetIconUrl());
 			//スロットが呼ばれるタイミングは遅延しているので、
 			//gUsersに格納されたあとのUserオブジェクトを渡しておく必要があるはず。
 			QObject::connect(fd, &FileDownloader::Downloaded, [fd, puser = &it.value()]()
 			{
 				QByteArray image = fd->GetDownloadedData();
-				QFile o(CachePath("Icon", puser->GetID()));
+				QFile o(IconPath(puser->GetID()));
 				o.open(QIODevice::WriteOnly);
 				o.write(image);
 				puser->SetUserIcon(fd->GetDownloadedData());
@@ -368,11 +369,11 @@ void SlackLogViewer::LoadChannels()
 		const QString& id = c["id"].toString();
 		const QString& name = c["name"].toString();
 		bool is_private = (c.toObject().contains("is_private") && c["is_private"].toBool() == true);
-		const QJsonArray& arr = c["members"].toArray();
-		QVector<QString> members(arr.size());
+		const QJsonArray& arr_ = c["members"].toArray();
+		QVector<QString> members(arr_.size());
 		for (int i = 0; i < members.size(); ++i)
 		{
-			members[i] = arr[i].toString();
+			members[i] = arr_[i].toString();
 		}
 		model->SetChannelInfo(row, is_private, id, name, members);
 		++row;
@@ -400,12 +401,12 @@ void SlackLogViewer::LoadDirectMessages()
 	for (auto dm : arr)
 	{
 		const QString& id = dm["id"].toString();
-		const QJsonArray& arr = dm["members"].toArray();
-		QString n = gUsers.find(arr.first().toString()).value().GetName();
-		QVector<QString> members(arr.size());
+		const QJsonArray& arr_ = dm["members"].toArray();
+		QString n = gUsers.find(arr_.first().toString()).value().GetName();
+		QVector<QString> members(arr_.size());
 		for (int i = 0; i < members.size(); ++i)
 		{
-			members[i] = arr[i].toString();
+			members[i] = arr_[i].toString();
 		}
 		model->SetDMUserInfo(row, id, n, members);
 		++row;
@@ -434,11 +435,11 @@ void SlackLogViewer::LoadGroupMessages()
 	{
 		const QString& id = gm["id"].toString();
 		const QString& name = gm["name"].toString();
-		const QJsonArray& arr = gm["members"].toArray();
-		QVector<QString> members(arr.size());
+		const QJsonArray& arr_ = gm["members"].toArray();
+		QVector<QString> members(arr_.size());
 		for (int i = 0; i < members.size(); ++i)
 		{
-			members[i] = arr[i].toString();
+			members[i] = arr_[i].toString();
 		}
 		model->SetGMUserInfo(row, id, name, members);
 		++row;
@@ -531,11 +532,11 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 	{
 		QDir dir;
 		if ((!dir.exists(gCacheDir + gWorkspace) && !dir.mkdir(gCacheDir + gWorkspace)) ||
-			(!dir.exists(CachePath("Text")) && !dir.mkdir(CachePath("Text"))) ||
-			(!dir.exists(CachePath("Image")) && !dir.mkdir(CachePath("Image"))) ||
-			(!dir.exists(CachePath("PDF")) && !dir.mkdir(CachePath("PDF"))) ||
-			(!dir.exists(CachePath("Others")) && !dir.mkdir(CachePath("Others"))) ||
-			(!dir.exists(CachePath("Icon")) && !dir.mkdir(CachePath("Icon"))))
+			(!dir.exists(CachePath(CacheType::TEXT)) && !dir.mkdir(CachePath(CacheType::TEXT))) ||
+			(!dir.exists(CachePath(CacheType::IMAGE)) && !dir.mkdir(CachePath(CacheType::IMAGE))) ||
+			(!dir.exists(CachePath(CacheType::PDF)) && !dir.mkdir(CachePath(CacheType::PDF))) ||
+			(!dir.exists(CachePath(CacheType::OTHERS)) && !dir.mkdir(CachePath(CacheType::OTHERS))) ||
+			(!dir.exists(IconPath()) && !dir.mkdir(IconPath())))
 		{
 			QErrorMessage* m = new QErrorMessage(this);
 			m->setAttribute(Qt::WA_DeleteOnClose);
@@ -693,7 +694,7 @@ void SlackLogViewer::Search(const QString& key, SearchMode mode)
 		if (b) mSearchView->GetView()->scrollTo(mSearchView->GetView()->model()->index(0, 0));
 	}
 }
-void SlackLogViewer::CacheAllFiles(CacheStatus::Channel ch, CacheStatus::Type type)
+void SlackLogViewer::CacheAllFiles(CacheStatus::Channel ch, CacheType type)
 {
 	//検索範囲
 	std::vector<std::pair<Channel::Type, int>> chs;
@@ -736,7 +737,7 @@ void SlackLogViewer::CacheAllFiles(CacheStatus::Channel ch, CacheStatus::Type ty
 	b.setDefaultButton(QMessageBox::Ok);
 	b.exec();
 }
-void SlackLogViewer::ClearCache(CacheStatus::Type type)
+void SlackLogViewer::ClearCache(CacheType type)
 {
 	::ClearCache(type);
 }
@@ -840,6 +841,7 @@ int ChannelTreeModel::rowCount(const QModelIndex& parent) const
 	if (parent.row() == (int)Channel::CHANNEL) return (int)gChannelVector.size();
 	if (parent.row() == (int)Channel::DIRECT_MESSAGE) return (int)gDMUserVector.size();
 	if (parent.row() == (int)Channel::GROUP_MESSAGE) return (int)gGMUserVector.size();
+	throw FatalError("unknown channel type");
 }
 int ChannelTreeModel::columnCount(const QModelIndex& parent) const
 {
