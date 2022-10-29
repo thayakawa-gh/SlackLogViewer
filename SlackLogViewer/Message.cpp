@@ -213,7 +213,7 @@ Message::Message(Channel::Type type, int ch, const QJsonObject& o, QString threa
 	mThreadTimeStampStr = std::move(threads_ts);
 }
 Message::Message(Channel::Type type, int ch, const QDateTime& datetime)
-	: mChannelType(type), mChannel(ch), mTimeStamp(datetime)
+	: mChannelType(type), mChannel(ch), mTimeStamp(datetime), mRow(0), mThread(nullptr)
 {}
 
 void Message::CreateTextDocument() const

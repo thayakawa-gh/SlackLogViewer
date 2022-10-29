@@ -173,6 +173,7 @@ CacheResult CacheAllFiles(Channel::Type ch_type, int ch, MessageListView* mes, C
 
 	for (auto& m : mes->GetMessages())
 	{
+		if (m->IsSeparator()) continue;
 		for (auto& f : m->GetFiles())
 		{
 			if (text && f->IsText() ||
