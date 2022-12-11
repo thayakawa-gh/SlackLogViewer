@@ -30,6 +30,9 @@ int main(int argc, char *argv[])
 
 	QFont font(gSettings->value("Font/Family").toString(), gSettings->value("Font/Size").toInt());
 	a.setFont(font);
+	QPalette p = QApplication::palette();
+	p.setColor(QPalette::Text, Qt::black);
+	QApplication::setPalette(p);
 	gDPI = std::make_unique<double>(QGuiApplication::primaryScreen()->physicalDotsPerInch());
 
 	gDateSeparator = std::make_unique<bool>(gSettings->value("Message/DateSeparator").toBool());
