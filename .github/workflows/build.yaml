@@ -18,17 +18,19 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
-        versions: '6.2.4'
+        version: '6.2.4'
         target: 'desktop'
         dir: '${{github.workspace}}/qt/'
         modules: qtwebengine
     # - uses: microsoft/setup-msbuild@v1.1
     #   if: ${{ matrix.os == 'windows-2019' }}
     - name: Install Zlib
+      shell: bash
       if: ${{ matrix.os == 'windows-2019' }}
       run: |
         vcpkg install zlib 
     - name: Install QuaZIP
+      shell: bash
       env:
         CMAKE_PREFIX_PATH: ${{env.Qt6_Dir}}
       run: |
