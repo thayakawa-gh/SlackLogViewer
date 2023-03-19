@@ -1,0 +1,39 @@
+name: ubuntu
+
+on: [ push, pull_request ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Qt
+      run: |
+        sudo apt update
+        sudo apt install -y qt6-base-dev qt6-webengine-dev libqt6core5compat6-dev libtbb-dev
+    - name: Install QuaZIP
+      run: |
+        mkdir -p quazip_1.4
+        cd quazip_1.4
+        git clone https://github.com/stachenov/quazip.git
+        git -C quazip checkout 9d3aa3ee948c1cde5a9f873ecbc3bb229c1182ee
+        mkdir 'build'
+        mkdir 'installed'
+        cmake -S quazip -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build
+        cmake --install build --prefix installed
+        cd ..
+    - name: Build
+      run: |
+        cd SlackLogViewer
+        mkdir build
+        mkdir SlackLogViewer_ubuntu
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../SlackLogViewer_ubuntu
+        make -j4
+        make install
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: ubuntu
+        path: SlackLogViewer/SlackLogViewer_ubuntu

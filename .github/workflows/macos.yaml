@@ -1,0 +1,29 @@
+name: macos
+
+on: [ push, pull_request ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Qt
+      run: |
+        brew install coreutils qt@6 tbb
+    - name: Install QuaZIP
+      run: |
+        brew install quazip
+    - name: Build
+      run: |
+        cd SlackLogViewer
+        mkdir build
+        mkdir SlackLogViewer_macos
+        cd build
+        MACOSX_DEPLOYMENT_TARGET=10.14 cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt@6) -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-11 -DCMAKE_C_COMPILER=gcc-11 -DCMAKE_INSTALL_PREFIX=../SlackLogViewer_macos
+        make -j4
+        make install
+    - name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: macos
+        path: SlackLogViewer/SlackLogViewer_macos
