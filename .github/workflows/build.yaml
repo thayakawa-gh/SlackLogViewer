@@ -21,7 +21,7 @@ jobs:
         version: '6.2.4'
         target: 'desktop'
         dir: '${{github.workspace}}/qt/'
-        modules: qtwebengine
+        modules: qtwebengine qtcore5compat
     # - uses: microsoft/setup-msbuild@v1.1
     #   if: ${{ matrix.os == 'windows-2019' }}
     - name: Install Zlib
