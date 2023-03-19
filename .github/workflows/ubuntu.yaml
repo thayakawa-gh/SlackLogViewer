@@ -8,9 +8,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Qt
-      run: |
-        sudo apt update
-        sudo apt install -y qt6-base-dev qt6-webengine-dev libqt6core5compat6-dev libtbb-dev
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.2.4'
+        target: 'desktop'
+        dir: '${{github.workspace}}/qt/'
+        modules: qtwebengine qtwebchannel qtpositioning qt5compat
     - name: Install QuaZIP
       run: |
         mkdir -p quazip_1.4

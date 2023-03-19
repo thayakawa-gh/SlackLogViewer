@@ -14,10 +14,9 @@ jobs:
         version: '6.2.4'
         target: 'desktop'
         dir: '${{github.workspace}}/qt/'
-        modules: qtwebengine qtwebchannel qtpositioning
+        modules: qtwebengine qtwebchannel qtpositioning qt5compat
     - name: Install zlib
       shell: bash
-      if: ${{ matrix.os == 'windows-2019' }}
       run: |
         vcpkg install zlib 
     - name: Install QuaZIP
