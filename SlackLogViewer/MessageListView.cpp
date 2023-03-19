@@ -195,7 +195,7 @@ void ThreadWidget::mousePressEvent(QMouseEvent*)
 {
 	Q_EMIT clicked(mParentMessage);
 }
-void ThreadWidget::enterEvent(QEvent*)
+void ThreadWidget::enterEvent(QEnterEvent*)
 {
 	setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid rgb(192, 192, 192); border-radius: 5px;");
 	mViewMessage->setVisible(true);
@@ -459,7 +459,7 @@ void MessageListView::mouseMoveEvent(QMouseEvent* event)
 void MessageListView::wheelEvent(QWheelEvent* event)
 {
 	QListView::wheelEvent(event);
-	UpdateCurrentIndex(event->pos());
+	UpdateCurrentIndex(event->position().toPoint());
 }
 
 void MessageListView::leaveEvent(QEvent* event)
@@ -765,7 +765,7 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 	text->addStretch();
 	setLayout(layout);
 }
-void MessageEditor::enterEvent(QEvent*)
+void MessageEditor::enterEvent(QEnterEvent*)
 {
 	setStyleSheet("QWidget { background-color: rgb(239, 239, 239); }");
 }
@@ -797,7 +797,7 @@ void MessageEditor::mouseMoveEvent(QMouseEvent* evt)
 void MessageEditor::paintEvent(QPaintEvent*)
 {
 	QStyleOption opt;
-	opt.init(this);
+	opt.initFrom(this);
 	QPainter p(this);
 	style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
 }

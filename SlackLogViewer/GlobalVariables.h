@@ -10,7 +10,7 @@
 #include <memory>
 #include <QSettings>
 #include <QFont>
-#include <QTextCodec>
+//#include <QTextCodec>
 
 class QDir;
 

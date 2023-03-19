@@ -144,7 +144,7 @@ Message::Message(Channel::Type type, int ch, const QJsonObject& o)
 	: mChannelType(type), mChannel(ch), mRow(0), mThread(nullptr)
 {
 	mMessage = o.find("text").value().toString();
-	mTimeStamp.setTime_t(o.find("ts").value().toString().toDouble());
+	mTimeStamp.setSecsSinceEpoch(o.find("ts").value().toString().toDouble());
 	mTimeStampStr = mTimeStamp.toString("yyyy/MM/dd hh:mm:ss");
 
 	auto sub = o.find("subtype");

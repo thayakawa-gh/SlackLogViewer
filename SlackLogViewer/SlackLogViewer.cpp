@@ -366,10 +366,10 @@ void SlackLogViewer::LoadChannels()
 	int row = 0;
 	for (auto c : arr)
 	{
-		const QString& id = c["id"].toString();
-		const QString& name = c["name"].toString();
-		bool is_private = (c.toObject().contains("is_private") && c["is_private"].toBool() == true);
-		const QJsonArray& arr_ = c["members"].toArray();
+		const QString& id = c.toObject()["id"].toString();
+		const QString& name = c.toObject().value("name").toString();
+		bool is_private = (c.toObject().contains("is_private") && c.toObject()["is_private"].toBool() == true);
+		const QJsonArray& arr_ = c.toObject()["members"].toArray();
 		QVector<QString> members(arr_.size());
 		for (int i = 0; i < members.size(); ++i)
 		{
@@ -400,8 +400,8 @@ void SlackLogViewer::LoadDirectMessages()
 	int row = 0;
 	for (auto dm : arr)
 	{
-		const QString& id = dm["id"].toString();
-		const QJsonArray& arr_ = dm["members"].toArray();
+		const QString& id = dm.toObject()["id"].toString();
+		const QJsonArray& arr_ = dm.toObject()["members"].toArray();
 		QString n = gUsers.find(arr_.first().toString()).value().GetName();
 		QVector<QString> members(arr_.size());
 		for (int i = 0; i < members.size(); ++i)
@@ -433,9 +433,9 @@ void SlackLogViewer::LoadGroupMessages()
 	int row = 0;
 	for (auto gm : arr)
 	{
-		const QString& id = gm["id"].toString();
-		const QString& name = gm["name"].toString();
-		const QJsonArray& arr_ = gm["members"].toArray();
+		const QString& id = gm.toObject()["id"].toString();
+		const QString& name = gm.toObject()["name"].toString();
+		const QJsonArray& arr_ = gm.toObject()["members"].toArray();
 		QVector<QString> members(arr_.size());
 		for (int i = 0; i < members.size(); ++i)
 		{
@@ -458,7 +458,7 @@ void SlackLogViewer::UpdateRecentFiles()
 {
 	QStringList ws = gSettings->value("History/LogFilePaths").toStringList();
 	int s = gSettings->value("History/NumOfRecentLogFilePaths").toInt();
-	int x = std::min(s, ws.size());
+	int x = std::min((qsizetype)s, ws.size());
 	int i = 0;
 	for (; i < x; ++i)
 	{

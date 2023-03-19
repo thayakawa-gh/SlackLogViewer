@@ -93,7 +93,7 @@ void ImageView::OpenImage(const ImageFile* i)
 	mImage = i;
 	mImageLabel->setPixmap(QPixmap::fromImage(i->GetImage()));
 	mScrollArea->setWidgetResizable(false);
-	mImageLabel->resize(mScales[mDefaultLevel] * mImageLabel->pixmap()->size());
+	mImageLabel->resize(mScales[mDefaultLevel] * mImageLabel->pixmap().size());
 }
 void ImageView::FitToWindow()
 {
@@ -120,10 +120,10 @@ void ImageView::Scale(QWheelEvent* event, int levelfrom, int levelto)
 	double oldfactor = mScales[levelfrom];
 	double factor = mScales[levelto];
 	QPointF ScrollbarPos = QPointF(mScrollArea->horizontalScrollBar()->value(), mScrollArea->verticalScrollBar()->value());
-	QPointF DeltaToPos = event->posF() / oldfactor - mScrollArea->widget()->pos() / oldfactor;
+	QPointF DeltaToPos = event->position() / oldfactor - mScrollArea->widget()->pos() / oldfactor;
 	QPointF Delta = DeltaToPos * factor - DeltaToPos * oldfactor;
 
-	mImageLabel->resize(factor * mImageLabel->pixmap()->size());
+	mImageLabel->resize(factor * mImageLabel->pixmap().size());
 
 	mScrollArea->horizontalScrollBar()->setValue(ScrollbarPos.x() + Delta.x());
 	mScrollArea->verticalScrollBar()->setValue(ScrollbarPos.y() + Delta.y());

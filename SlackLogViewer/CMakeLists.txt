@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 set(VER_MAJOR 1)
 set(VER_MINOR 2)
 set(VER_PATCH 3)
-set(VER_REVISION 0)
+set(VER_REVISION 1)
 set(COMPANY_COPYRIGHT "Copyright(C) 2020-2022 T.Hayakawa")
 
 project(SlackLogViewer VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}.${VER_REVISION}")
@@ -27,6 +27,8 @@ else()
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     add_compile_options(
         /W4 /utf-8
@@ -36,13 +38,12 @@ else()
     add_compile_options(-Wall)
 endif()
 
-
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt5 COMPONENTS Core Gui Widgets Concurrent Network WebEngineWidgets REQUIRED)
-find_package(QuaZip-Qt5 REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Widgets Concurrent Network WebEngineWidgets REQUIRED)
+find_package(QuaZip-Qt6 REQUIRED)
 
 file(GLOB _SOURCES *.cpp)
 
@@ -59,7 +60,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE QT_NO_KEYWORDS)
 
 target_link_libraries(
     ${PROJECT_NAME}
-    PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Concurrent Qt5::Network Qt5::WebEngineWidgets QuaZip::QuaZip)
+    PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::WebEngineWidgets QuaZip::QuaZip)
 
 if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 target_link_libraries(
@@ -75,9 +76,9 @@ install(TARGETS ${PROJECT_NAME}
 include(DeployQt.cmake)
 
 if(APPLE)
-set(RESOURCE_DIR "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents")
+    set(RESOURCE_DIR "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents")
 else()
-set(RESOURCE_DIR "${CMAKE_BINARY_DIR}")
+    set(RESOURCE_DIR "${CMAKE_BINARY_DIR}")
 endif()
 
 add_custom_command(
@@ -94,7 +95,7 @@ if(TBB_FOUND)
     target_link_libraries(${PROJECT_NAME} PRIVATE TBB::tbb)
 endif()
 
-deploy_qt(${PROJECT_NAME})
+#deploy_qt(${PROJECT_NAME})
 
 if(APPLE)
     add_custom_command(
@@ -104,9 +105,14 @@ endif()
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} UPPER_BUILD_TYPE)
 
+#find_package(Qt6 COMPONENTS Core)
+get_target_property(_qmake_path Qt6::qmake IMPORTED_LOCATION)
+get_filename_component(_qt_bin_path ${_qmake_path} DIRECTORY)
+
 #copy quazip dll
 get_target_property(QUAZIP_SHARED_LOC QuaZip::QuaZip IMPORTED_LOCATION_${UPPER_BUILD_TYPE})
 if (WIN32 AND QUAZIP_SHARED_LOC)
+    find_program(DEPLOYQT NAMES windeployqt HINTS "${_qt_bin_path}")
     message("quazip shared loc = ${QUAZIP_SHARED_LOC}")
     get_filename_component(QUAZIP_SHARED_NAME ${QUAZIP_SHARED_LOC} NAME)
     add_custom_command(
@@ -115,6 +121,39 @@ if (WIN32 AND QUAZIP_SHARED_LOC)
         ${QUAZIP_SHARED_LOC}
         ${CMAKE_CURRENT_BINARY_DIR}/${QUAZIP_SHARED_NAME})
     install(FILES ${QUAZIP_SHARED_LOC} DESTINATION ./)
+    
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${DEPLOYQT} ${CMAKE_CURRENT_BINARY_DIR}/${QUAZIP_SHARED_NAME} -verbose=2 
+            --$<IF:$<CONFIG:Debug>,debug,release> --dir "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+            --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime
+            --no-opengl-sw)
+    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/${QUAZIP_SHARED_NAME} -verbose=2 
+                                  --$<IF:$<CONFIG:Debug>,debug,release>  
+                                  --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime 
+                                  --no-opengl-sw)")
+endif()
+
+#deployqt
+if(WIN32)
+    find_program(DEPLOYQT NAMES windeployqt HINTS "${_qt_bin_path}")
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${DEPLOYQT} ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.exe -verbose=2 
+            --$<IF:$<CONFIG:Debug>,debug,release> --dir ${CMAKE_BINARY_DIR}
+            --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime
+            --no-opengl-sw)
+    install(CODE "execute_process(COMMAND cmd /c echo ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME} ${CMAKE_SOURCE_DIR})")
+    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.exe -verbose=2 
+                                  --$<IF:$<CONFIG:Debug>,debug,release> 
+                                  --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime 
+                                  --no-opengl-sw)")
+elseif(APPLE)
+    find_program(DEPLOYQT NAMES macdeployqt HINTS "${_qt_bin_path}")
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${DEPLOYQT} ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app $<IF:$<CONFIG:Debug>,-use-debug-lib,>)
+    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app $<IF:$<CONFIG:Debug>,-use-debug-lib,>")
 endif()
 
 #copy zlib dll

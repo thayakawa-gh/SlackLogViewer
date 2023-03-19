@@ -95,7 +95,7 @@ class FoundMessageEditorInside : public MessageEditor
 {
 	using MessageEditor::MessageEditor;
 	//enter、leaveEventをオーバーライドして、背景色を変更する処理を消す。
-	virtual void enterEvent(QEvent* evt) override;
+	virtual void enterEvent(QEnterEvent* evt) override;
 	virtual void leaveEvent(QEvent* evt) override;
 };
 class FoundMessageEditor : public QFrame
@@ -105,7 +105,7 @@ public:
 
 	FoundMessageEditor(const Message* m, QWidget* mw);
 
-	virtual void enterEvent(QEvent* evt) override;
+	virtual void enterEvent(QEnterEvent* evt) override;
 	void leaveEvent(QEvent* evt) override;
 
 Q_SIGNALS:

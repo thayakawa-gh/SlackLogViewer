@@ -31,7 +31,7 @@ AttachedFile::AttachedFile(CacheType type, const QJsonObject& o)
 	mExtension = "." + o.find("filetype").value().toString();
 	mUserID = o.find("user").value().toString();
 	QDateTime dt;
-	dt.setTime_t(o.find("timestamp").value().toInt());
+	dt.setSecsSinceEpoch(o.find("timestamp").value().toInt());
 	mTimeStampStr = dt.toString("yyyy/MM/dd hh:mm:ss");
 }
 

@@ -78,7 +78,7 @@ Q_SIGNALS:
 private:
 
 	virtual void mousePressEvent(QMouseEvent* event) override;
-	virtual void enterEvent(QEvent* evt) override;
+	virtual void enterEvent(QEnterEvent* evt) override;
 	void leaveEvent(QEvent* evt) override;
 
 	QLabel* mViewMessage;
@@ -216,7 +216,7 @@ Q_SIGNALS:
 
 public Q_SLOTS:
 
-	virtual void enterEvent(QEvent* evt) override;
+	virtual void enterEvent(QEnterEvent* evt) override;
 	virtual void leaveEvent(QEvent* evt) override;
 	virtual void mousePressEvent(QMouseEvent* event) override;
 	virtual void mouseMoveEvent(QMouseEvent* event) override;

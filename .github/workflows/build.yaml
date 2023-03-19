@@ -15,21 +15,48 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        versions: '6.2.4'
+        target: 'desktop'
+        dir: '${{github.workspace}}/qt/'
+        modules: qtwebengine
     # - uses: microsoft/setup-msbuild@v1.1
     #   if: ${{ matrix.os == 'windows-2019' }}
+    - name: Install Zlib
+      if: ${{ matrix.os == 'windows-2019' }}
+      run: |
+        vcpkg install zlib 
+    - name: Install QuaZIP
+      env:
+        CMAKE_PREFIX_PATH: ${{env.Qt6_Dir}}
+      run: |
+        mkdir -p quazip_1.4
+        cd quazip_1.4
+        git clone https://github.com/stachenov/quazip.git
+        git -C quazip checkout 9d3aa3ee948c1cde5a9f873ecbc3bb229c1182ee  # v1.3_useQtXZlibInConfigCmake
+        mkdir 'build'
+        mkdir 'installed'
+        cmake -S quazip -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build
+        cmake --install build --prefix installed
+        cd ..
     - name: Build (Ubuntu)
+      env:
+        CMAKE_PREFIX_PATH: ${{env.Qt6_Dir}};${{github.workspace}}/quazip_1.4/installed
       if: ${{ matrix.os == 'ubuntu-22.04'}}
       run: |
-        sudo apt update
-        sudo apt install -y qtbase5-dev qtwebengine5-dev libtbb-dev
-        git clone https://github.com/stachenov/quazip.git
-        git -C quazip checkout v1.3
-        mkdir -p quazip/build
-        pushd quazip/build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
-        make -j4
-        sudo make install
-        popd
+        #sudo apt update
+        #sudo apt install -y qtbase6-dev qtwebengine6-dev libtbb-dev
+        #git clone https://github.com/stachenov/quazip.git
+        #git -C quazip checkout v1.3
+        #mkdir -p quazip/build
+        #pushd quazip/build
+        #cmake .. -DCMAKE_BUILD_TYPE=Release
+        #make -j4
+        #sudo make install
+        #popd
 
         mkdir -p SlackLogViewer/build
         cd SlackLogViewer/build
@@ -38,15 +65,17 @@ jobs:
         mkdir SlackLogViewer_ubuntu
         cp -a SlackLogViewer Resources SlackLogViewer_ubuntu/
     - name: Build (macOS)
+      env:
+        CMAKE_PREFIX_PATH: ${{env.Qt6_Dir}};${{github.workspace}}/quazip_1.4/installed
       if: ${{ matrix.os == 'macos-10.15' }}
       run: |
-        brew install coreutils qt@5 tbb
-        wget https://raw.githubusercontent.com/Homebrew/homebrew-core/e77259102655b0390273bdc01a08c9eb61b934ca/Formula/quazip.rb
-        brew install ./quazip.rb
+        #brew install coreutils qt@6 tbb
+        #wget https://raw.githubusercontent.com/Homebrew/homebrew-core/e77259102655b0390273bdc01a08c9eb61b934ca/Formula/quazip.rb
+        #brew install ./quazip.rb
 
         mkdir -p SlackLogViewer/build
         cd SlackLogViewer/build
-        MACOSX_DEPLOYMENT_TARGET=10.14 cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5) -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-11 -DCMAKE_C_COMPILER=gcc-11
+        MACOSX_DEPLOYMENT_TARGET=10.14 cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt@6) -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-11 -DCMAKE_C_COMPILER=gcc-11
         make -j4
         tar -c SlackLogViewer.app Resources | xz -6 > SlackLogViewer_macos.tar.xz
     - name: Build (Win)
@@ -56,29 +85,29 @@ jobs:
         # I think setup-msbuild does not work...
         # find "/c/Program Files (x86)/Microsoft Visual Studio/2019" -name "MSBuild.exe"
         # MSBUILD_PATH="/c/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin/amd64"
-        MSBUILD_PATH="/c/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin"
-        MSBUILD_PATH_DRV="C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin"
+        #MSBUILD_PATH="/c/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin"
+        #MSBUILD_PATH_DRV="C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/MSBuild/Current/Bin"
         # export PATH="${PATH}:${MSBUILD_PATH}"
         # echo "${PATH}"
 
         # simulate qt5-default choco partly (except COMPILER part)
-        choco install aqt
-        COMPILER=msvc2019_64
-        QtSDKRoot="C:/Qt"
-        QtSDKVer="5.15.2"
-        QtSDK="${QtSDKRoot}/${QtSDKVer}/${COMPILER}"
-        aqt install-qt --outputdir $QtSDKRoot windows desktop ${QtSDKVer} win64_${COMPILER} -m qtwebengine
-        git clone https://github.com/stachenov/quazip.git
-        git -C quazip checkout 5ff81b434273226087df077d41a727a12c5c795e  # v1.3_useQtXZlibInConfigCmake
-        mkdir -p quazip/build
-        pushd quazip/build
-        cmake .. -G "Visual Studio 16 2019" -A x64 "-DCMAKE_PREFIX_PATH=${QtSDK}" -DCMAKE_BUILD_TYPE=Release -DQUAZIP_USE_QT_ZLIB=ON
-        "${MSBUILD_PATH_DRV}/MSBuild.exe" INSTALL.vcxproj -t:build -p:configuration=Release -p:platform=x64 -maxcpucount
-        popd
+        #choco install aqt
+        #COMPILER=msvc2019_64
+        #QtSDKRoot="C:/Qt"
+        #QtSDKVer="6.2.4"
+        #QtSDK="${QtSDKRoot}/${QtSDKVer}/${COMPILER}"
+        #aqt install-qt --outputdir $QtSDKRoot windows desktop ${QtSDKVer} win64_${COMPILER} -m qtwebengine
+        #git clone https://github.com/stachenov/quazip.git
+        #git -C quazip checkout 9d3aa3ee948c1cde5a9f873ecbc3bb229c1182ee  # v1.3_useQtXZlibInConfigCmake
+        #mkdir -p quazip/build
+        #pushd quazip/build
+        #cmake .. -G "Visual Studio 16 2019" -A x64 "-DCMAKE_PREFIX_PATH=${QtSDK}" -DCMAKE_BUILD_TYPE=Release -DQUAZIP_USE_QT_ZLIB=ON
+        #"${MSBUILD_PATH_DRV}/MSBuild.exe" INSTALL.vcxproj -t:build -p:configuration=Release -p:platform=x64 -maxcpucount
+        #popd
 
         mkdir -p SlackLogViewer/build
         cd SlackLogViewer/build
-        cmake .. -G "Visual Studio 16 2019" -A x64 "-DCMAKE_PREFIX_PATH=${QtSDK}" "-DQuaZip-Qt5_DIR=C:/Program Files/QuaZip/lib/cmake/QuaZip-Qt5-1.3" -DCMAKE_BUILD_TYPE=Release
+        cmake .. -G "Visual Studio 16 2019" -A x64 "-DCMAKE_PREFIX_PATH=${QtSDK}" "-DQuaZip-Qt6_DIR=C:/Program Files/QuaZip/lib/cmake/QuaZip-Qt6-1.4" -DCMAKE_BUILD_TYPE=Release
         "${MSBUILD_PATH_DRV}/MSBuild.exe" SlackLogViewer.sln -t:build -p:configuration=Release -p:platform=x64 -maxcpucount
         # find
         mkdir SlackLogViewer_win
