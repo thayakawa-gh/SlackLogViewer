@@ -176,10 +176,10 @@ CacheResult CacheAllFiles(Channel::Type ch_type, int ch, MessageListView* mes, C
 		if (m->IsSeparator()) continue;
 		for (auto& f : m->GetFiles())
 		{
-			if (text && f->IsText() ||
-				image && f->IsImage() ||
-				pdf && f->IsPDF() ||
-				others && f->IsOther())
+			if ((text && f->IsText()) ||
+				(image && f->IsImage()) ||
+				(pdf && f->IsPDF()) ||
+				(others && f->IsOther()))
 			{
 				f->Download(f_exist, nullptr, f_downloaded, f_failure);
 				f->Wait();
@@ -191,10 +191,10 @@ CacheResult CacheAllFiles(Channel::Type ch_type, int ch, MessageListView* mes, C
 		{
 			for (auto& tf : t->GetFiles())
 			{
-				if (text && tf->IsText() ||
-					image && tf->IsImage() ||
-					pdf && tf->IsPDF() ||
-					others && tf->IsOther())
+				if ((text && tf->IsText()) ||
+					(image && tf->IsImage()) ||
+					(pdf && tf->IsPDF()) ||
+					(others && tf->IsOther()))
 				{
 					tf->Download(f_exist, nullptr, f_downloaded, f_failure);
 					tf->Wait();

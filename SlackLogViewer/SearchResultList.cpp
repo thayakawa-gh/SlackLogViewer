@@ -13,7 +13,9 @@
 #include <QPainter>
 #include <QStackedWidget>
 #include <QtConcurrent>
+#ifndef __clang__
 #include <execution>
+#endif
 
 std::vector<std::shared_ptr<Message>> SearchExactPhrase(Channel::Type /*ch_type*/, int /*ch*/, MessageListView* mes, QString phrase, SearchMode mode)
 {
@@ -204,11 +206,19 @@ std::pair<size_t, bool> SearchResultListView::Search(Channel::Type ch_type, int 
 		res.insert(res.end(), make_move_iterator(r.begin()), make_move_iterator(r.end()));
 	}
 	if (chs.size() > 1)
+#ifndef __clang__
 		std::sort(std::execution::par, res.begin(), res.end(),
 				  [](const std::shared_ptr<Message>& m1, const std::shared_ptr<Message>& m2)
 				  {
 					  return m1->GetTimeStamp() < m2->GetTimeStamp();
 				  });
+#else
+		std::sort(res.begin(), res.end(),
+			[](const std::shared_ptr<Message>& m1, const std::shared_ptr<Message>& m2)
+			{
+				return m1->GetTimeStamp() < m2->GetTimeStamp();
+			});
+#endif
 	mView->SetMessages(std::move(res));
 	return { mView->GetMessages().size(), true };
 }

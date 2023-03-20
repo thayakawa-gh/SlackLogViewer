@@ -23,10 +23,12 @@ jobs:
         mkdir 'build'
         mkdir 'installed'
         cmake -S quazip -B build -DCMAKE_BUILD_TYPE=Release
-        cmake --build build
+        cmake --build build --config Release
         cmake --install build --prefix installed
         cd ..
     - name: Build
+      env:
+        CMAKE_PREFIX_PATH: ${{github.workspace}}/quazip_1.4/installed/lib/cmake
       run: |
         cd SlackLogViewer
         mkdir build

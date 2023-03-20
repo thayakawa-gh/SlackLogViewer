@@ -77,8 +77,10 @@ include(DeployQt.cmake)
 
 if(APPLE)
     set(RESOURCE_DIR "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents")
+    set(INSTALL_RESOURCE_DIR "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app/Resources/Contents")
 else()
     set(RESOURCE_DIR "${CMAKE_BINARY_DIR}")
+    set(INSTALL_RESOURCE_DIR "${CMAKE_INSTALL_PREFIX}")
 endif()
 
 add_custom_command(
@@ -87,7 +89,7 @@ add_custom_command(
     ${CMAKE_CURRENT_SOURCE_DIR}/Resources/
     ${RESOURCE_DIR}/Resources/)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Resources/
-		DESTINATION Resources)
+		DESTINATION ${INSTALL_RESOURCE_DIR}/Resources)
 
 # std::execution::par might require TBB
 find_package(TBB)
@@ -119,12 +121,12 @@ if (WIN32 AND QUAZIP_SHARED_LOC)
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         ${QUAZIP_SHARED_LOC}
-        ${CMAKE_CURRENT_BINARY_DIR}/${QUAZIP_SHARED_NAME})
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/${QUAZIP_SHARED_NAME})
     install(FILES ${QUAZIP_SHARED_LOC} DESTINATION ./)
     
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${DEPLOYQT} ${CMAKE_CURRENT_BINARY_DIR}/${QUAZIP_SHARED_NAME} -verbose=2 
+        COMMAND ${DEPLOYQT} $<TARGET_FILE_DIR:${PROJECT_NAME}>/${QUAZIP_SHARED_NAME} -verbose=2 
             --$<IF:$<CONFIG:Debug>,debug,release> --dir "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
             --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime
             --no-opengl-sw)
@@ -139,11 +141,11 @@ if(WIN32)
     find_program(DEPLOYQT NAMES windeployqt HINTS "${_qt_bin_path}")
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${DEPLOYQT} ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.exe -verbose=2 
-            --$<IF:$<CONFIG:Debug>,debug,release> --dir ${CMAKE_BINARY_DIR}
+        COMMAND ${DEPLOYQT} $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:${PROJECT_NAME}> -verbose=2 
+            --$<IF:$<CONFIG:Debug>,debug,release> --dir $<TARGET_FILE_DIR:${PROJECT_NAME}>
             --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime
             --no-opengl-sw)
-    install(CODE "execute_process(COMMAND cmd /c echo ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME} ${CMAKE_SOURCE_DIR})")
+    install(CODE "execute_process(COMMAND cmd /c echo ${DEPLOYQT} $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:${PROJECT_NAME}> ${CMAKE_SOURCE_DIR})")
     install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.exe -verbose=2 
                                   --$<IF:$<CONFIG:Debug>,debug,release> 
                                   --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime 
@@ -153,7 +155,7 @@ elseif(APPLE)
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${DEPLOYQT} ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app $<IF:$<CONFIG:Debug>,-use-debug-lib,>)
-    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app $<IF:$<CONFIG:Debug>,-use-debug-lib,>")
+    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app $<IF:$<CONFIG:Debug>,-use-debug-lib,>)")
 endif()
 
 #copy zlib dll
