@@ -43,7 +43,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 if(NOT QT_MAJOR_VERSION)
-    set(QT_MAJOR_VERSION 6)
+    set(QT_MAJOR_VERSION 5)
 endif()
 
 find_package(Qt${QT_MAJOR_VERSION} COMPONENTS Core Gui Widgets Concurrent Network WebEngineWidgets REQUIRED)

@@ -11,7 +11,7 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.2.4'
+        version: '5.15.2'
         target: 'desktop'
         dir: '${{github.workspace}}/qt/'
         modules: qtwebengine qtwebchannel qtpositioning qt5compat
@@ -22,7 +22,7 @@ jobs:
     - name: Install QuaZIP
       shell: bash
       env:
-        CMAKE_PREFIX_PATH: ${{env.Qt6_Dir}}
+        CMAKE_PREFIX_PATH: ${{env.Qt5_Dir}}
       run: |
         mkdir -p quazip_1.4
         cd quazip_1.4
