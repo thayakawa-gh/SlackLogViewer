@@ -14,7 +14,7 @@ jobs:
         version: '5.15.2'
         target: 'desktop'
         dir: '${{github.workspace}}/qt/'
-        modules: qtwebengine qtwebchannel qtpositioning qt5compat
+        modules: qtwebengine
     - name: Install zlib
       shell: bash
       run: |
@@ -46,7 +46,7 @@ jobs:
         cd ..
     - name: Build
       env:
-        CMAKE_PREFIX_PATH: ${{env.Qt6_Dir}};${{github.workspace}}\quazip_1.4\installed
+        CMAKE_PREFIX_PATH: ${{env.Qt5_Dir}};${{github.workspace}}\quazip_1.4\installed
       run: |
         cd SlackLogViewer
         mkdir build

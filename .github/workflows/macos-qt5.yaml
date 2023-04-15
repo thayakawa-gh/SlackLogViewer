@@ -14,7 +14,7 @@ jobs:
         target: 'desktop'
         arch: 'clang_64'
         dir: '${{github.workspace}}/qt/'
-        modules: qtwebengine qtwebchannel qtpositioning qt5compat
+        modules: qtwebengine
     - name: Install QuaZIP
       run: |
         mkdir -p quazip_1.4

@@ -1,4 +1,4 @@
-name: windows
+name: windows-qt6
 
 on: [ push, pull_request ]
 
@@ -58,4 +58,4 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: win
-        path: SlackLogViewer/SlackLogViewer_windows
+        path: SlackLogViewer/SlackLogViewer_windows_qt6

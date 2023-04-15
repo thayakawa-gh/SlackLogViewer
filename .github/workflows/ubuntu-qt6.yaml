@@ -34,7 +34,7 @@ jobs:
         mkdir build
         mkdir SlackLogViewer_ubuntu
         cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../SlackLogViewer_ubuntu
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../SlackLogViewer_ubuntu -DQT_MAJOR_VERSION=6
         make -j4
         make install
     - name: Upload

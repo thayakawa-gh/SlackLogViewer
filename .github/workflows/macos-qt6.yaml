@@ -1,4 +1,4 @@
-name: macos
+name: macos-qt6
 
 on: [ push, pull_request ]
 
