@@ -50,12 +50,12 @@ jobs:
       run: |
         cd SlackLogViewer
         mkdir build
-        mkdir SlackLogViewer_windows
-        cmake -S ./ -B build -G "Visual Studio 16 2019" -DCMAKE_INSTALL_PREFIX="SlackLogViewer_windows" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_CONFIGURATION_TYPES=Release -DQT_MAJOR_VERSION=6 -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md -DOPENSSL_DIR="../openssl"
+        mkdir SlackLogViewer_windows_qt6
+        cmake -S ./ -B build -G "Visual Studio 16 2019" -DCMAKE_INSTALL_PREFIX="SlackLogViewer_windows_qt6" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_CONFIGURATION_TYPES=Release -DQT_MAJOR_VERSION=6 -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md -DOPENSSL_DIR="../openssl"
         cmake --build build --config Release
         cmake --install build
     - name: Upload
       uses: actions/upload-artifact@v2
       with:
-        name: win
+        name: windows-qt6
         path: SlackLogViewer/SlackLogViewer_windows_qt6

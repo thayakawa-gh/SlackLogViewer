@@ -57,5 +57,5 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v2
       with:
-        name: win
+        name: windows
         path: SlackLogViewer/SlackLogViewer_windows

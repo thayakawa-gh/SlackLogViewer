@@ -36,12 +36,13 @@ jobs:
       run: |
         cd SlackLogViewer
         mkdir build
-        mkdir SlackLogViewer_macos
-        MACOSX_DEPLOYMENT_TARGET=10.15 cmake -S ./ -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=SlackLogViewer_macos -DQT_MAJOR_VERSION=6 -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+        mkdir SlackLogViewer_macos_qt6
+        MACOSX_DEPLOYMENT_TARGET=10.15 cmake -S ./ -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=SlackLogViewer_macos_qt6 -DQT_MAJOR_VERSION=6 -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
         cmake --build build --config Release
         cmake --install build
+        tar -c SlackLogViewer_macos_qt6/SlackLogViewer.app | xz -6 > SlackLogViewer_macos_qt6.tar.xz
     - name: Upload
       uses: actions/upload-artifact@v2
       with:
-        name: macos
-        path: SlackLogViewer/SlackLogViewer_macos_qt6
+        name: macos-qt6
+        path: SlackLogViewer/SlackLogViewer_macos_qt6.tar.xz
