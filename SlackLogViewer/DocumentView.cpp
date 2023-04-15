@@ -93,7 +93,12 @@ void ImageView::OpenImage(const ImageFile* i)
 	mImage = i;
 	mImageLabel->setPixmap(QPixmap::fromImage(i->GetImage()));
 	mScrollArea->setWidgetResizable(false);
+	//Qt5と6ではQLabel::pixmap()の戻り値が異なる。5ではポインタだが、6では値。
+#if QT_VERSION_MAJOR==5
+	mImageLabel->resize(mScales[mDefaultLevel] * mImageLabel->pixmap()->size());
+#elif QT_VERSION_MAJOR==6
 	mImageLabel->resize(mScales[mDefaultLevel] * mImageLabel->pixmap().size());
+#endif
 }
 void ImageView::FitToWindow()
 {
@@ -123,7 +128,11 @@ void ImageView::Scale(QWheelEvent* event, int levelfrom, int levelto)
 	QPointF DeltaToPos = event->position() / oldfactor - mScrollArea->widget()->pos() / oldfactor;
 	QPointF Delta = DeltaToPos * factor - DeltaToPos * oldfactor;
 
+#if QT_VERSION_MAJOR==5
+	mImageLabel->resize(factor * mImageLabel->pixmap()->size());
+#elif QT_VERSION_MAJOR==6
 	mImageLabel->resize(factor * mImageLabel->pixmap().size());
+#endif
 
 	mScrollArea->horizontalScrollBar()->setValue(ScrollbarPos.x() + Delta.x());
 	mScrollArea->verticalScrollBar()->setValue(ScrollbarPos.y() + Delta.y());

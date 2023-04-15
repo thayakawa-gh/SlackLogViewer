@@ -18,6 +18,7 @@ public:
 	//enum Type { TEXT, IMAGE, PDF, OTHERS, };
 
 	AttachedFile(CacheType type, const QJsonObject& o);
+	AttachedFile(CacheType type, const QString& url, const QString& message_ts, int index);//quote用。
 
 	CacheType GetType() const { return mType; }
 	bool IsText() const { return mType == CacheType::TEXT; }
@@ -218,6 +219,7 @@ class ImageFile : public AttachedFile
 public:
 
 	ImageFile(const QJsonObject& o);
+	ImageFile(const QString& url, const QString& message_ts, int index);
 	const QImage& GetImage() const { return mImage; }
 	void ClearImage() { mImage = QImage(); }
 	bool HasImage() const { return !mImage.isNull(); }

@@ -2,7 +2,9 @@
 #include "GlobalVariables.h"
 #include <QSettings>
 #include <QtWidgets/QApplication>
-//#include <QTextCodec>
+#if QT_VERSION_MAJOR==5
+#include <QTextCodec>
+#endif
 #include <QGuiApplication>
 #include <QScreen>
 #include <QDir>
@@ -16,7 +18,9 @@ int main(int argc, char *argv[])
 	QDir exedir = QCoreApplication::applicationDirPath();
 	QString settingdir = exedir.absolutePath() + "/";
 	gSettings = std::make_unique<QSettings>(settingdir + "settings.ini", QSettings::IniFormat);
-	//gSettings->setIniCodec(QTextCodec::codecForName("UTF-8"));
+#if QT_VERSION_MAJOR==5
+	gSettings->setIniCodec(QTextCodec::codecForName("UTF-8"));
+#endif
 	Construct(*gSettings, exedir);
 
 #ifdef __APPLE__

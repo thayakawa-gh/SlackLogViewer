@@ -34,6 +34,13 @@ AttachedFile::AttachedFile(CacheType type, const QJsonObject& o)
 	dt.setSecsSinceEpoch(o.find("timestamp").value().toInt());
 	mTimeStampStr = dt.toString("yyyy/MM/dd hh:mm:ss");
 }
+AttachedFile::AttachedFile(CacheType type, const QString& url, const QString& message_ts, int index)
+	: mDownloader(nullptr)
+{
+	mType = type;
+	mUrl = url;
+	mID = message_ts + "_" + QString::number(index) + "_" + QUrl(url).fileName();
+}
 
 QString AttachedFile::GetCacheFilePath() const
 {
@@ -54,6 +61,9 @@ void AttachedFile::SaveCacheFile(const QByteArray& data) const
 
 ImageFile::ImageFile(const QJsonObject& o)
 	: AttachedFile(CacheType::IMAGE, o)
+{}
+ImageFile::ImageFile(const QString & url, const QString& message_ts, int index)
+	: AttachedFile(CacheType::IMAGE, url, message_ts, index)
 {}
 /*void ImageFile::RequestDownload(FileDownloader* fd)
 {

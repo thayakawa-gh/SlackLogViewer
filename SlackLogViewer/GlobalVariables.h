@@ -237,6 +237,7 @@ inline static const int gMaxThumbnailWidth = 360;
 
 inline double GetBasePointSize() { return gSettings->value("Font/Size").toInt(); }
 
+inline double GetMessagePointSize() { return GetBasePointSize() * 1.2; }
 inline double GetNamePointSize() { return GetBasePointSize() * 1.2; };
 inline double GetReactionPointSize() { return GetBasePointSize() * 1.3; };
 inline double GetDateTimePointSize() { return GetBasePointSize() * 0.9; }

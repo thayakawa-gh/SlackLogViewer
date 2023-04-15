@@ -4,7 +4,7 @@ set(VER_MAJOR 1)
 set(VER_MINOR 2)
 set(VER_PATCH 3)
 set(VER_REVISION 1)
-set(COMPANY_COPYRIGHT "Copyright(C) 2020-2022 T.Hayakawa")
+set(COMPANY_COPYRIGHT "Copyright(C) 2020-2023 T.Hayakawa")
 
 project(SlackLogViewer VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}.${VER_REVISION}")
 
@@ -42,8 +42,12 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 COMPONENTS Core Gui Widgets Concurrent Network WebEngineWidgets REQUIRED)
-find_package(QuaZip-Qt6 REQUIRED)
+if(NOT QT_MAJOR_VERSION)
+    set(QT_MAJOR_VERSION 6)
+endif()
+
+find_package(Qt${QT_MAJOR_VERSION} COMPONENTS Core Gui Widgets Concurrent Network WebEngineWidgets REQUIRED)
+find_package(QuaZip-Qt${QT_MAJOR_VERSION} REQUIRED)
 
 file(GLOB _SOURCES *.cpp)
 
@@ -60,12 +64,14 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE QT_NO_KEYWORDS)
 
 target_link_libraries(
     ${PROJECT_NAME}
-    PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::WebEngineWidgets QuaZip::QuaZip)
+    PRIVATE Qt${QT_MAJOR_VERSION}::Core Qt${QT_MAJOR_VERSION}::Gui 
+    Qt${QT_MAJOR_VERSION}::Widgets Qt${QT_MAJOR_VERSION}::Concurrent 
+    Qt${QT_MAJOR_VERSION}::Network Qt${QT_MAJOR_VERSION}::WebEngineWidgets QuaZip::QuaZip)
 
 if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-target_link_libraries(
-    ${PROJECT_NAME}
-    PRIVATE -static-libstdc++ -static-libgcc)
+    target_link_libraries(
+        ${PROJECT_NAME}
+        PRIVATE -static-libstdc++ -static-libgcc)
 endif()
 
 install(TARGETS ${PROJECT_NAME}
@@ -76,10 +82,10 @@ install(TARGETS ${PROJECT_NAME}
 include(DeployQt.cmake)
 
 if(APPLE)
-    set(RESOURCE_DIR "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents")
+    #set(RESOURCE_DIR "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents")
     set(INSTALL_RESOURCE_DIR "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app/Resources/Contents")
 else()
-    set(RESOURCE_DIR "${CMAKE_BINARY_DIR}")
+    #set(RESOURCE_DIR "${CMAKE_BINARY_DIR}")
     set(INSTALL_RESOURCE_DIR "${CMAKE_INSTALL_PREFIX}")
 endif()
 
@@ -87,7 +93,7 @@ add_custom_command(
     TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_CURRENT_SOURCE_DIR}/Resources/
-    ${RESOURCE_DIR}/Resources/)
+    $<TARGET_FILE_DIR:${PROJECT_NAME}>/Resources/)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Resources/
 		DESTINATION ${INSTALL_RESOURCE_DIR}/Resources)
 
@@ -105,32 +111,37 @@ if(APPLE)
         COMMAND plutil -replace NSHighResolutionCapable -bool true ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.app/Contents/Info.plist)
 endif()
 
-string(TOUPPER ${CMAKE_BUILD_TYPE} UPPER_BUILD_TYPE)
+#if($<IF:$<CONFIG:Debug>, TRUE, FALSE>)
+#    set(UPPER_BUILD_TYPE DEBUG)
+#else()
+#    set(UPPER_BUILD_TYPE RELEASE)
+#endif()
+#message("UPPER_BUILD_TYPE = ${UPPER_BUILD_TYPE}")
 
 #find_package(Qt6 COMPONENTS Core)
-get_target_property(_qmake_path Qt6::qmake IMPORTED_LOCATION)
+get_target_property(_qmake_path Qt${QT_MAJOR_VERSION}::qmake IMPORTED_LOCATION)
 get_filename_component(_qt_bin_path ${_qmake_path} DIRECTORY)
 
 #copy quazip dll
-get_target_property(QUAZIP_SHARED_LOC QuaZip::QuaZip IMPORTED_LOCATION_${UPPER_BUILD_TYPE})
-if (WIN32 AND QUAZIP_SHARED_LOC)
+#get_target_property(QUAZIP_SHARED_LOC QuaZip::QuaZip IMPORTED_LOCATION_${UPPER_BUILD_TYPE})
+if (WIN32)
     find_program(DEPLOYQT NAMES windeployqt HINTS "${_qt_bin_path}")
-    message("quazip shared loc = ${QUAZIP_SHARED_LOC}")
-    get_filename_component(QUAZIP_SHARED_NAME ${QUAZIP_SHARED_LOC} NAME)
+    #message("quazip shared loc = ${QUAZIP_SHARED_LOC}")
+    #get_filename_component(QUAZIP_SHARED_NAME ${QUAZIP_SHARED_LOC} NAME)
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-        ${QUAZIP_SHARED_LOC}
-        $<TARGET_FILE_DIR:${PROJECT_NAME}>/${QUAZIP_SHARED_NAME})
-    install(FILES ${QUAZIP_SHARED_LOC} DESTINATION ./)
+        $<TARGET_FILE:QuaZip::QuaZip> 
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:QuaZip::QuaZip>)
+    install(FILES $<TARGET_FILE:QuaZip::QuaZip> DESTINATION ./)
     
     add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${DEPLOYQT} $<TARGET_FILE_DIR:${PROJECT_NAME}>/${QUAZIP_SHARED_NAME} -verbose=2 
+        COMMAND ${DEPLOYQT} $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_FILE_NAME:QuaZip::QuaZip> -verbose=2 
             --$<IF:$<CONFIG:Debug>,debug,release> --dir "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
             --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime
             --no-opengl-sw)
-    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/${QUAZIP_SHARED_NAME} -verbose=2 
+    install(CODE "execute_process(COMMAND ${DEPLOYQT} ${CMAKE_INSTALL_PREFIX}/$<TARGET_FILE_NAME:QuaZip::QuaZip> -verbose=2 
                                   --$<IF:$<CONFIG:Debug>,debug,release>  
                                   --no-quick-import --no-translations --no-system-d3d-compiler --no-compiler-runtime 
                                   --no-opengl-sw)")
@@ -165,7 +176,7 @@ if(WIN32 AND DEFINED ZLIB_SHARED)
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         ${ZLIB_SHARED}
-        ${CMAKE_CURRENT_BINARY_DIR}/${ZLIB_SHARED_NAME})
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/${ZLIB_SHARED_NAME})
     install(FILES ${ZLIB_SHARED} DESTINATION ./)
 endif()
 

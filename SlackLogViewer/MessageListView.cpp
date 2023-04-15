@@ -48,7 +48,7 @@ void DownloadCacheFile(const AttachedFile* file)
 	file->Wait();
 }
 
-ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
+ImageWidget::ImageWidget(const ImageFile* image, int pwidth, bool isquote)
 	: mImage(image)
 {
 	QSize size;
@@ -68,9 +68,10 @@ ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
 	setStyleSheet("border: 2px solid rgb(160, 160, 160);");
 	int imagewidth = std::min(pwidth - gSpacing * 5 - gIconSize, size.width());
 	setFixedSize(imagewidth + 4, size.height() + 4);
-	if (!isnull)
+	if (!isnull && !isquote)
 	{
 		//画像がダウンロード済みならダウンロードボタンを表示する。
+		//ただし、引用ページの画像である場合は行わない。
 		QPushButton* download = new QPushButton(this);
 		download->setStyleSheet("border: 1px solid rgb(160, 160, 160); background-color: white;");
 		download->setIcon(QIcon(ResourcePath("download.png")));
@@ -84,6 +85,10 @@ ImageWidget::ImageWidget(const ImageFile* image, int pwidth)
 				{
 					DownloadCacheFile(image);
 				});
+	}
+	else
+	{
+		setCursor(Qt::PointingHandCursor);
 	}
 }
 
@@ -195,7 +200,11 @@ void ThreadWidget::mousePressEvent(QMouseEvent*)
 {
 	Q_EMIT clicked(mParentMessage);
 }
+#if QT_VERSION_MAJOR==5
+void ThreadWidget::enterEvent(QEvent*)
+#elif QT_VERSION_MAJOR==6
 void ThreadWidget::enterEvent(QEnterEvent*)
+#endif
 {
 	setStyleSheet("background-color: rgb(255, 255, 255); border: 1px solid rgb(192, 192, 192); border-radius: 5px;");
 	mViewMessage->setVisible(true);
@@ -334,6 +343,7 @@ MessageListView::Construct_parallel(Channel::Type type, int ch_index, QByteArray
 			if (hidden_by_limit != o.end()) continue;
 		}
 		auto it = o.find("thread_ts");
+		std::shared_ptr<Message> mes;
 		if (it != o.end())
 		{
 			//スレッドの親メッセージかリプライは、thread_tsを持つ。
@@ -346,7 +356,7 @@ MessageListView::Construct_parallel(Channel::Type type, int ch_index, QByteArray
 				const QJsonArray& ausers = o.find("reply_users").value().toArray();
 				std::vector<QString> users(ausers.size());
 				for (int i = 0; i < ausers.size(); ++i) users[i] = ausers[i].toString();
-				std::shared_ptr<Message> mes = std::make_shared<Message>(type, ch_index, o, thread_ts);
+				mes = std::make_shared<Message>(type, ch_index, o, thread_ts);
 				messages.emplace_back(mes);
 				std::lock_guard<std::mutex> lg(*thmtx);
 				auto [thit, b] = threads->insert(std::make_pair(thread_ts, std::make_shared<Thread>(mes.get(), std::move(users))));
@@ -365,12 +375,14 @@ MessageListView::Construct_parallel(Channel::Type type, int ch_index, QByteArray
 					messages.emplace_back(std::make_shared<Message>(ch_index, o));
 				}
 				else thit->second.AddReply(ch_index, o);*/
-				replies.emplace_back(std::make_shared<Message>(type, ch_index, o, std::move(thread_ts)));
+				mes = std::make_shared<Message>(type, ch_index, o, std::move(thread_ts));
+				replies.emplace_back(mes);
 			}
 		}
 		else
 		{
-			messages.emplace_back(std::make_shared<Message>(type, ch_index, o));
+			mes = std::make_shared<Message>(type, ch_index, o);
+			messages.emplace_back(mes);
 		}
 	}
 	return { std::move(messages), std::move(replies) };
@@ -665,16 +677,70 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 		//int height = tb->heightForWidth(tb->width());
 		tb->setFixedSize(textsize);
 		tb->setOpenExternalLinks(true);
+		tb->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		tb->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 		tb->setStyleSheet("QTextBrowser { border: 0px; }"
 						  "QMenu::item:disabled { color: grey; }"
 						  "QMenu::item:selected { background-color: palette(Highlight); }");
 		connect(tb, SIGNAL(copyAvailable(bool)), this, SIGNAL(copyAvailable(bool)));
 		QString html;
-		html += MrkdwnToHtml(m.GetMessage());
-		tb->setHtml(html);
+		//html += MrkdwnToHtml(m.GetMessage());
+		//tb->setHtml(html);
 		//tb->setHtml(m.GetTextDocument()->toHtml());
-		//tb->setDocument(m.GetTextDocument());
+		tb->setDocument(m.GetTextDocument());
 		text->addWidget(tb);
+	}
+	if (!m.GetQuotes().empty())
+	{
+		const auto& quotes = m.GetQuotes();
+		for (auto& q : quotes)
+		{
+			if (q->HasImage())
+			{
+				ImageWidget* im = new ImageWidget(q->GetImageFile(), pwidth, true);
+				text->addWidget(im);
+				text->setAlignment(im, Qt::AlignLeft);
+				//QObject::connect(im, &ImageWidget::clicked, [im]() { MainWindow::Get()->OpenImage(im->GetImage()); });
+			}
+			QHBoxLayout* l = new QHBoxLayout();
+			//l->setSpacing(gSpacing);
+			l->setContentsMargins(0, 0, 0, 0);
+			l->addSpacing(gSpacing);
+
+			MessageBrowser* tb = new MessageBrowser();
+			int width = textsize.width();
+			width = std::min(width, gMaxThumbnailWidth * 2);//テキスト全体の幅
+			QTextDocument* td = q->GetTextDocument();
+			td->setTextWidth(width - gSpacing * 2 - 2);//テキスト左側の縦線分のスペースを差し引く。
+			int height = ceil(td->documentLayout()->documentSize().height());
+
+			QFrame* vline = new QFrame();
+			vline->setFrameShape(QFrame::VLine);
+			vline->setLineWidth(1);
+			vline->setFixedSize(2, height);
+			vline->setStyleSheet("background-color: rgb(160, 160, 160);");
+			l->addWidget(vline);
+			l->setAlignment(vline, Qt::AlignLeft);
+
+			tb->setFixedSize(width, height);
+			tb->setOpenExternalLinks(true);
+			tb->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+			tb->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+			tb->setStyleSheet("QTextBrowser { border: 0px; }"
+							  "QMenu::item:disabled { color: grey; }"
+							  "QMenu::item:selected { background-color: palette(Highlight); }");
+			connect(tb, SIGNAL(copyAvailable(bool)), this, SIGNAL(copyAvailable(bool)));
+			//QString html;
+			//html += MrkdwnToHtml(m.GetMessage());
+			//tb->setHtml(html);
+			//tb->setHtml(m.GetTextDocument()->toHtml());
+			tb->setDocument(q->GetTextDocument());
+			l->addWidget(tb);
+			l->setAlignment(tb, Qt::AlignLeft);
+			l->addStretch();
+
+			text->addLayout(l);
+		}
 	}
 	if (!m.GetFiles().empty())
 	{
@@ -765,7 +831,11 @@ MessageEditor::MessageEditor(MessageListView* view, Message& m, QSize namesize, 
 	text->addStretch();
 	setLayout(layout);
 }
+#if QT_VERSION_MAJOR==5
+void MessageEditor::enterEvent(QEvent*)
+#elif QT_VERSION_MAJOR==6
 void MessageEditor::enterEvent(QEnterEvent*)
+#endif
 {
 	setStyleSheet("QWidget { background-color: rgb(239, 239, 239); }");
 }
@@ -820,6 +890,9 @@ QSize MessageDelegate::sizeHint(const QStyleOptionViewItem& option, const QModel
 	QSize mssize = GetMessageSize(opt, index);
 	int height = mssize.height();
 
+	QSize qtsize = GetQuoteSize(opt, index);
+	if (qtsize != QSize(0, 0)) height += qtsize.height() + gSpacing;
+
 	QSize dcsize = GetDocumentSize(opt, index);
 	if (dcsize != QSize(0, 0)) height += dcsize.height() + gSpacing;
 
@@ -849,6 +922,7 @@ void MessageDelegate::paint(QPainter* painter, const QStyleOptionViewItem& optio
 	painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
 	painter->setRenderHint(QPainter::TextAntialiasing, true);
 	int y = PaintMessage(painter, crect, 0, opt, index);
+	y = PaintQuote(painter, crect, y, opt, index);
 	y = PaintDocument(painter, crect, y, opt, index);
 	y = PaintReaction(painter, crect, y, opt, index);
 	y = PaintThread(painter, crect, y, opt, index);
@@ -920,6 +994,80 @@ int MessageDelegate::PaintMessage(QPainter* painter, QRect crect, int ypos, cons
 	}
 	painter->restore();
 	return ypos + nmsize.height() + gSpacing + mssize.height() + gSpacing;
+}
+int MessageDelegate::PaintQuote(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const
+{
+	Message* m = static_cast<Message*>(index.internalPointer());
+	const auto& qs = m->GetQuotes();
+	if (qs.empty()) return ypos;
+	crect.translate(0, ypos);
+	int y = crect.top();
+	auto* device = painter->device();
+
+	int count = 0;
+	for (auto& q : qs)
+	{
+		painter->save();
+		if (q->HasImage())
+		{
+			//画像を持っている場合、それを表示する。
+
+			auto draw = [](QPainter* painter, QRect crect, int y, const QImage& image)
+			{
+				QPixmap tmp = QPixmap::fromImage(image);
+				painter->save();
+				painter->setPen(QPen(QBrush(QColor(160, 160, 160)), 2));
+				int width = std::min(crect.width() - gSpacing - gIconSize, tmp.width());
+				if (width < tmp.width()) tmp = tmp.copy(0, 0, width, tmp.height());
+				painter->drawPixmap(crect.left() + gIconSize + gSpacing + 2, y + 2, width, tmp.height(), tmp);
+				painter->drawRect(crect.left() + gIconSize + gSpacing + 1, y + 1, width + 2, tmp.height() + 2);
+				painter->restore();
+			};
+
+			auto* model = static_cast<MessageListModel*>(mListView->model());
+			auto notify_fin_download = [model, index](const AttachedFile*)
+			{
+				Q_EMIT model->ImageDownloadFinished(index, index, QVector<int>());
+			};
+			auto draw_immediately = [draw, painter, crect, y](const AttachedFile* file)
+			{
+				const ImageFile* image = static_cast<const ImageFile*>(file);
+				draw(painter, crect, y, image->GetImage().scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
+			};
+			auto draw_loading = [draw, painter, crect, y](const AttachedFile*)
+			{
+				draw(painter, crect, y, gTempImage->scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
+			};
+			auto draw_failed = [device, draw, crect, y](const AttachedFile*)
+			{
+				//これが呼ばれるタイミングでは、何故かpainterのポインタが不定値になっている。
+				QPainter painter(device);
+				draw(&painter, crect, y, gTempImage->scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
+			};
+
+			q->DownloadAndOpenImage(draw_immediately, draw_loading, notify_fin_download, draw_failed);
+
+			y += gMaxThumbnailHeight + gSpacing + 4;
+		}
+
+		QSize textsize = GetQuoteTextSize(option, index, count);
+		//引用文左の縦線分の幅を引く。
+		QRect rect(0, 0, textsize.width() - gSpacing * 2 - 2, textsize.height());
+
+		//引用文左側の縦線
+		painter->save();
+		painter->setPen(QPen(QBrush(QColor(160, 160, 160)), 2));
+		painter->drawLine(crect.left() + gIconSize + gSpacing * 2 + 1, y, crect.left() + gIconSize + gSpacing * 2 + 1, y + textsize.height());
+		painter->restore();
+
+		painter->setFont(option.font);
+		painter->translate(crect.left() + gIconSize + gSpacing * 3 + 2, y);
+		q->GetTextDocument()->drawContents(painter, rect);
+		painter->restore();
+		y += textsize.height() + gSpacing;
+		++count;
+	}
+	return ypos + y - crect.top();
 }
 int MessageDelegate::PaintReaction(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
@@ -1024,8 +1172,12 @@ int MessageDelegate::PaintDocument(QPainter* painter, QRect crect, int ypos, con
 			{
 				draw(painter, crect, y, gTempImage->scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
 			};
+			auto draw_failed = [draw, painter, crect, y](const AttachedFile*)
+			{
+				//draw(painter, crect, y, gTempImage->scaledToHeight(gMaxThumbnailHeight, Qt::SmoothTransformation));
+			};
 
-			i->DownloadAndOpen(draw_immediately, draw_loading, notify_fin_download, nullptr);
+			i->DownloadAndOpen(draw_immediately, draw_loading, notify_fin_download, draw_failed);
 
 			y += gMaxThumbnailHeight + gSpacing + 4;
 		}
@@ -1166,6 +1318,41 @@ QSize MessageDelegate::GetTextSize(const QStyleOptionViewItem& option, const QMo
 	td->setTextWidth(width);
 	return QSize(width, ceil(td->documentLayout()->documentSize().height()));
 }
+QSize MessageDelegate::GetQuoteSize(const QStyleOptionViewItem& option, const QModelIndex& index) const
+{
+	Message* m = static_cast<Message*>(index.internalPointer());
+	auto& quotes = m->GetQuotes();
+	if (quotes.empty()) return QSize(0, 0);
+	int height = 0;
+	int width = gMaxThumbnailWidth;
+	for (auto& q : quotes)
+	{
+		if (q->HasImage())
+		{
+			height += gSpacing + gMaxThumbnailHeight + 4;
+		}
+		int w = option.rect.width() - gRightMargin - gLeftMargin - gSpacing - gIconSize;
+		w = std::min(w, gMaxThumbnailWidth * 2);//テキスト全体の幅
+		QTextDocument* td = q->GetTextDocument();
+		td->setTextWidth(w - gSpacing * 2 - 2);//テキスト左側の縦線分のスペースを差し引く。
+		height += ceil(td->documentLayout()->documentSize().height()) + gSpacing;
+		width = std::max(width, w);
+	}
+	return QSize(width, height - gSpacing);
+}
+QSize MessageDelegate::GetQuoteTextSize(const QStyleOptionViewItem& option, const QModelIndex& index, int n) const
+{
+	Message* m = static_cast<Message*>(index.internalPointer());
+	auto& quotes = m->GetQuotes();
+	if (quotes.empty()) return QSize(0, 0);
+	auto& q = quotes[n];
+	int width = option.rect.width() - gRightMargin - gLeftMargin - gSpacing - gIconSize;
+	width = std::min(width, gMaxThumbnailWidth * 2);//テキスト全体の幅
+	QTextDocument* td = q->GetTextDocument();
+	td->setTextWidth(width - gSpacing * 2 - 2);//テキスト左側の縦線分のスペースを差し引く。
+	int height = ceil(td->documentLayout()->documentSize().height());
+	return QSize(width, height);
+}
 QSize MessageDelegate::GetReactionSize(const QStyleOptionViewItem& option, const QModelIndex& index) const
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
@@ -1187,9 +1374,9 @@ QSize MessageDelegate::GetDocumentSize(const QStyleOptionViewItem& /*option*/, c
 {
 	Message* m = static_cast<Message*>(index.internalPointer());
 	const auto& files = m->GetFiles();
+	if (files.empty()) return QSize(0, 0);
 	int height = 0;
 	int width = gMaxThumbnailWidth;
-	if (files.empty()) return QSize(0, 0);
 	for (auto& f : files)
 	{
 		if (f->IsImage()) height += gMaxThumbnailHeight + 4 + gSpacing;

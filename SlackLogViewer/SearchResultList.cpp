@@ -248,7 +248,11 @@ void SearchResultModel::Open(const std::vector<std::shared_ptr<Message>>* m)
 	MessageListModel::Open(m);
 }
 
+#if QT_VERSION_MAJOR==5
+void FoundMessageEditorInside::enterEvent(QEvent* evt)
+#elif QT_VERSION_MAJOR==6
 void FoundMessageEditorInside::enterEvent(QEnterEvent* evt)
+#endif
 {
 	QWidget::enterEvent(evt);
 }
@@ -292,7 +296,11 @@ void FoundMessageEditor::mousePressEvent(QMouseEvent* event)
 {
 	if (event->button() == Qt::LeftButton) Q_EMIT clicked();
 }
+#if QT_VERSION_MAJOR==5
+void FoundMessageEditor::enterEvent(QEvent*)
+#elif QT_VERSION_MAJOR==6
 void FoundMessageEditor::enterEvent(QEnterEvent*)
+#endif
 {
 	setStyleSheet("background-color: rgb(239, 239, 239);");
 	layout()->itemAt(1)->widget()->setStyleSheet("background-color: rgb(239, 239, 239);");

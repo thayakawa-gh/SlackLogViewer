@@ -9,7 +9,9 @@
 #include "AttachedFile.h"
 #include "emoji.h"
 
-void MrkdwnToHtml_impl(QString& str)
+//絵文字、ユーザー名、チャンネル名、urlを置き換える。
+//これらはSlack独自表記になっている。
+void ReplaceSlackNotation(QString& str)
 {
 	//絵文字
 	{
@@ -91,6 +93,11 @@ void MrkdwnToHtml_impl(QString& str)
 			match = matchurl.match(str);
 		}
 	}
+}
+
+void MrkdwnToHtml_impl(QString& str)
+{
+	ReplaceSlackNotation(str);
 
 	//bold
 	static const QRegularExpression bold("(^|[\\s]+)\\*([^\\n]*?)\\*($|[\\s]+)");
@@ -136,15 +143,16 @@ QString MrkdwnToHtml(const QString& str)
 		s[i] = "<style> pre { width: 100%; border: 1px solid #000; white-space: pre-wrap; } </style>\n<pre><code><div style=\"background-color:#EDF7FF;\">" + s[i] + "</div></code></pre>";
 	}
 
-	return "<font size=\"" + QString::number((int)(GetBasePointSize() * 0.5)) +
-		"\"pt>" + s.join("") + "</font>";
+	return /*"<font size=\"" + QString::number((int)(GetBasePointSize() * 0.5)) +
+		/*"\"pt>" + */s.join("")/* + "</font>"*/;
 }
 
 Message::Message(Channel::Type type, int ch, const QJsonObject& o)
 	: mChannelType(type), mChannel(ch), mRow(0), mThread(nullptr)
 {
 	mMessage = o.find("text").value().toString();
-	mTimeStamp.setSecsSinceEpoch(o.find("ts").value().toString().toDouble());
+	QString ts = o.find("ts").value().toString();
+	mTimeStamp.setSecsSinceEpoch(ts.toDouble());
 	mTimeStampStr = mTimeStamp.toString("yyyy/MM/dd hh:mm:ss");
 
 	auto sub = o.find("subtype");
@@ -190,6 +198,35 @@ Message::Message(Channel::Type type, int ch, const QJsonObject& o)
 		}
 	}
 
+	auto quotes = o.find("attachments");
+	if (quotes != o.end())
+	{
+		QJsonArray ar = quotes.value().toArray();
+		mQuotes.reserve(ar.size());
+		int index = 0;
+		for (const auto& a : ar)
+		{
+			QJsonObject q = a.toObject();
+			QString service_name;
+			if (auto it = q.find("service_name"); it != q.end()) service_name = it.value().toString();
+			QString service_icon;
+			if (auto it = q.find("service_icon"); it != q.end()) service_icon = it.value().toString();
+			QString title;
+			if (auto it = q.find("title"); it != q.end()) title = it.value().toString();
+			QString title_link;
+			if (auto it = q.find("from_url"); it != q.end()) title_link = it.value().toString();
+			if (auto it = q.find("title_link"); it != q.end() && title_link.isEmpty()) title_link = it.value().toString();
+			QString text;
+			if (auto it  = q.find("text"); it != q.end()) text = it.value().toString();
+			QString image_url;
+			if (auto it = q.find("image_url"); it != q.end()) image_url = it.value().toString();
+
+			mQuotes.emplace_back(
+				std::make_unique<Quote>(ts, index, service_name, service_icon, title, title_link, text, image_url));
+			++index;
+		}
+	}
+
 	auto reactions = o.find("reactions");
 	if (reactions != o.end())
 	{
@@ -219,6 +256,9 @@ Message::Message(Channel::Type type, int ch, const QDateTime& datetime)
 void Message::CreateTextDocument() const
 {
 	mTextDocument = std::make_unique<QTextDocument>();
+	QFont f;
+	f.setPointSizeF(GetMessagePointSize());
+	mTextDocument->setDefaultFont(f);
 	mTextDocument->setHtml(GetHtmlMessage());
 }
 bool Message::IsReply() const
@@ -248,3 +288,39 @@ bool Message::IsSeparator() const
 Thread::Thread(const Message* parent, std::vector<QString>&& users)
 	: mParent(parent), mReplyUsers(std::move(users))
 {}
+
+Quote::Quote(const QString& message_ts, int index,
+			 const QString& service_name, const QString& siurl,
+			 const QString& title, const QString& link,
+			 const QString& text, const QString& imurl)
+	: mServiceName(service_name), mServiceIconUrl(siurl),
+	mTitle(title), mLink(link),
+	mText(text), mImageUrl(imurl)
+{
+	if (!mImageUrl.isEmpty()) mImage = std::make_unique<ImageFile>(mImageUrl, message_ts, index);
+}
+void Quote::CreateTextDocument() const
+{
+	QString html;
+	//html += "<font size=\"" + QString::number(GetDateTimePointSize()) + "\"pt>";
+
+	if (HasServiceName()) html += "<b>" + GetServiceName() + "</b><br>";
+
+	if (HasTitle())
+	{
+		QString escaped_url = GetLink().toHtmlEscaped();
+		html += "<a href= \"" + escaped_url + "\"><b>" + GetTitle() + "</b></a><br>";
+	}
+	if (HasText())
+	{
+		auto text = GetText();
+		ReplaceSlackNotation(text);
+		html += text;
+	}
+	//html += "</font>";
+	mTextDocument = std::make_unique<QTextDocument>();
+	QFont f;
+	f.setPointSizeF(GetMessagePointSize());
+	mTextDocument->setDefaultFont(f);
+	mTextDocument->setHtml(html);
+}

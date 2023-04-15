@@ -35,7 +35,7 @@ class ImageWidget : public ClickableLabel
 {
 	Q_OBJECT
 public:
-	ImageWidget(const ImageFile* i, int pwidth);
+	ImageWidget(const ImageFile* i, int pwidth, bool isquote = false);
 
 	const ImageFile* GetImage() const { return mImage; }
 
@@ -78,7 +78,11 @@ Q_SIGNALS:
 private:
 
 	virtual void mousePressEvent(QMouseEvent* event) override;
+#if QT_VERSION_MAJOR==5
+	virtual void enterEvent(QEvent* evt) override;
+#elif QT_VERSION_MAJOR==6
 	virtual void enterEvent(QEnterEvent* evt) override;
+#endif
 	void leaveEvent(QEvent* evt) override;
 
 	QLabel* mViewMessage;
@@ -216,7 +220,11 @@ Q_SIGNALS:
 
 public Q_SLOTS:
 
+#if QT_VERSION_MAJOR==5
+	virtual void enterEvent(QEvent* evt) override;
+#elif QT_VERSION_MAJOR==6
 	virtual void enterEvent(QEnterEvent* evt) override;
+#endif
 	virtual void leaveEvent(QEvent* evt) override;
 	virtual void mousePressEvent(QMouseEvent* event) override;
 	virtual void mouseMoveEvent(QMouseEvent* event) override;
@@ -243,6 +251,7 @@ public:
 	virtual QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
 
 	int PaintMessage(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const;//戻り値はypos + 消費したheight
+	int PaintQuote(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const;//戻り値はypos + 消費したheight
 	int PaintReaction(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const;//戻り値はypos + 消費したheight
 	int PaintThread(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const;//戻り値はypos + 消費したheight
 	int PaintDocument(QPainter* painter, QRect crect, int ypos, const QStyleOptionViewItem& option, const QModelIndex& index) const;//戻り値はypos + 消費したheight
@@ -254,6 +263,9 @@ public:
 	QSize GetNameSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
 	QSize GetDateTimeSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
 	QSize GetTextSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
+
+	QSize GetQuoteSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
+	QSize GetQuoteTextSize(const QStyleOptionViewItem& option, const QModelIndex& index, int n) const;
 
 	QSize GetReactionSize(const QStyleOptionViewItem& option, const QModelIndex& index) const;
 

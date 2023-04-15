@@ -107,6 +107,9 @@ QSize ReplyDelegate::sizeHint(const QStyleOptionViewItem& option, const QModelIn
 	QSize mssize = GetMessageSize(opt, index);
 	int height = mssize.height();
 
+	QSize qtsize = GetQuoteSize(opt, index);
+	if (qtsize != QSize(0, 0)) height += qtsize.height() + gSpacing;
+
 	QSize dcsize = GetDocumentSize(opt, index);
 	if (dcsize != QSize(0, 0)) height += dcsize.height() + gSpacing;
 
@@ -133,6 +136,7 @@ void ReplyDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option,
 		painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
 		painter->setRenderHint(QPainter::TextAntialiasing, true);
 		int y = PaintMessage(painter, crect, 0, opt, index);
+		y = PaintQuote(painter, crect, y, opt, index);
 		y = PaintDocument(painter, crect, y, option, index);
 		y = PaintReaction(painter, crect, y, opt, index);
 	}

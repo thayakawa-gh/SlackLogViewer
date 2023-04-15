@@ -13,6 +13,7 @@
 QString MrkdwnToHtml(const QString& str);
 
 class Thread;
+class Quote;
 
 class Reaction
 {
@@ -129,6 +130,7 @@ public:
 
 	const std::vector<std::unique_ptr<AttachedFile>>& GetFiles() const { return mFiles; }
 	std::vector<std::unique_ptr<AttachedFile>>& GetFiles() { return mFiles; }
+	std::vector<std::unique_ptr<Quote>>& GetQuotes() { return mQuotes; }
 	const std::vector<Reaction>& GetReactions() const { return mReactions; }
 
 	bool IsReply() const;
@@ -158,6 +160,7 @@ private:
 	//MessageListView、Message、Threadなどで複雑に共有されうるmThreadをstd::shared_ptrにするべきではない。
 	//std::weak_ptrと悩ましいが、Messagesが生きている限りThreadが死なないのは明らかなので、とりあえず生ポインタにしておく。
 	Thread* mThread;
+	std::vector<std::unique_ptr<Quote>> mQuotes;
 	std::vector<std::unique_ptr<AttachedFile>> mFiles;
 };
 
@@ -178,6 +181,61 @@ private:
 	const Message* mParent;
 	std::vector<std::shared_ptr<Message>> mReplies;
 	std::vector<QString> mReplyUsers;
+};
+
+class Quote
+{
+public:
+
+	Quote(const QString& message_ts, int index,
+		  const QString& service_name, const QString& siurl,
+		  const QString& title, const QString& link,
+		  const QString& text, const QString& imurl);
+
+	const QString& GetServiceName() const { return mServiceName; }
+	const QString& GetServiceIconUrl() const { return mServiceIconUrl; }
+	const QString& GetTitle() const { return mTitle; }
+	const QString& GetLink() const { return mLink; }
+	const QString& GetText() const { return mText; }
+	const QTextDocument* GetTextDocument() const
+	{
+		if (!mTextDocument) CreateTextDocument();
+		return mTextDocument.get();
+	}
+	QTextDocument* GetTextDocument()
+	{
+		if (!mTextDocument) CreateTextDocument();
+		return mTextDocument.get();
+	}
+	const QString& GetImageUrl() const { return mImageUrl; }
+	const ImageFile* GetImageFile() const { return mImage.get(); }
+	ImageFile* GetImageFile() { return mImage.get(); }
+
+	bool HasServiceName() const { return !mServiceName.isEmpty(); }
+	bool HasTitle() const { return !mTitle.isEmpty(); }
+	bool HasLink() const { return !mLink.isEmpty(); }
+	bool HasText() const { return !mText.isEmpty(); }
+	bool HasImage() const { return !mImageUrl.isEmpty(); }
+
+	template <class FAlready, class FWait, class FSucceeded, class FFailed>
+	void DownloadAndOpenImage(FAlready already, FWait wait, FSucceeded succeeded, FFailed failed)
+	{
+		mImage->DownloadAndOpen(already, wait, succeeded, failed);
+	}
+
+private:
+
+	void CreateTextDocument() const;
+
+	//const Message* mParent;
+	QString mServiceName;
+	QString mServiceIconUrl;
+	QString mTitle;
+	QString mLink;
+	QString mText;
+	mutable std::unique_ptr<QTextDocument> mTextDocument;
+	QString mImageUrl;
+	std::unique_ptr<ImageFile> mImage;
 };
 
 #endif

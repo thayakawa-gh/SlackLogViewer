@@ -458,7 +458,11 @@ void SlackLogViewer::UpdateRecentFiles()
 {
 	QStringList ws = gSettings->value("History/LogFilePaths").toStringList();
 	int s = gSettings->value("History/NumOfRecentLogFilePaths").toInt();
+#if QT_VERSION_MAJOR==5
+	int x = std::min(s, ws.size());
+#elif QT_VERSION_MAJOR==6
 	int x = std::min((qsizetype)s, ws.size());
+#endif
 	int i = 0;
 	for (; i < x; ++i)
 	{
