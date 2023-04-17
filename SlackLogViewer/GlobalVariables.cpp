@@ -114,7 +114,7 @@ QJsonDocument LoadJsonFile(const QString& folder_or_zip, const QString& path)
 	QFileInfo info(folder_or_zip);
 	if (info.isDir())
 	{
-		QFile file(folder_or_zip + "\\" + path);
+		QFile file(folder_or_zip + "/" + path);
 		if (!file.open(QIODevice::ReadOnly)) return QJsonDocument();
 		QByteArray data = file.readAll();
 		return QJsonDocument::fromJson(data);
@@ -134,7 +134,7 @@ QVector<std::pair<QDateTime, QString>> GetMessageFileList(const QString& folder_
 	QVector<std::pair<QDateTime, QString>> res;
 	if (info.isDir())
 	{
-		QDir dir = gSettings->value("History/LastLogFilePath").toString() + "\\" + channel;
+		QDir dir = gSettings->value("History/LastLogFilePath").toString() + "/" + channel;
 		//auto ch_it = std::find_if(gChannelVector.begin(), gChannelVector.end(), [&channel](const Channel& ch) { return ch.GetName() == channel; });
 		//int ch_index = ch_it - gChannelVector.begin();
 		QStringList ext = { "*.json" };//jsonファイルだけ読む。そもそもjson以外存在しないけど。
@@ -277,21 +277,21 @@ QString GetCacheDirFromEnv()
 {
 	QString tmp;
 #ifdef _WIN32
-	QString dir = qgetenv("LocalAppData");
+	QString dir = QString::fromLocal8Bit(qgetenv("LocalAppData"));
 	if (!dir.isEmpty())
 	{
 		dir.replace("\\", "/");
 		tmp = dir;
 	}
 #elif defined __APPLE__
-	QString dir = qgetenv("HOME");
+	QString dir = QString::fromLocal8Bit(qgetenv("HOME"));
 	if (!dir.isEmpty()) tmp = dir + "/Library/Caches";
 #elif defined __linux__
-	QString dir = qgetenv("XDG_CACHE_HOME");
+	QString dir = QString::fromLocal8Bit(qgetenv("XDG_CACHE_HOME"));
 	if (!dir.isEmpty()) tmp = dir;
 	else
 	{
-		dir = getenv("HOME");
+		dir = QString::fromLocal8Bit(qgetenv("HOME"));
 		if (!dir.isEmpty()) tmp = dir + "/.cache";
 	}
 #endif
