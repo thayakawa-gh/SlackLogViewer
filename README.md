@@ -11,16 +11,32 @@ By using this, you can:
 ### Building
 For Windows and macOS, you can download a prebuilt binary from [Releases](https://github.com/thayakawa-gh/SlackLogViewer/releases).
 
-If necessary, you can build SlackLogViewer with CMake.  
-This application is written in C++17 and can be compiled with:
-* Visual Studio 2019 or later
-* GCC 9 or later
+If necessary, you can build SlackLogViewer with CMake as in the following commands.
+```
+git clone https://github.com/thayakawa-gh/SlackLogViewer
+cd SlackLogViewer
+mkdir build
+cd build
+cmake ../SlackLogViewer -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=path_to_install_dir
+make
+make install
+```
 
-Make sure you have installed the following dependencies.  
-* Qt5 with QtWebEngine (5.14 or later)
+###### Note
+The Qt major version is assumed to be 6 by default. Please add an option `-DQT_MAJOR_VERSION=5` in the cmake command if you want to build with Qt5.  
+
+This application is written in C++17 and confirmed to be buildable with the following compilers.
+
+* Visual Studio 2019
+* GCC 11.3.0
+* Clang/LLVM 12.0.0
+
+Make sure you have installed the following dependencies.
+
+* Qt5 ( 5.14 or higher) or Qt6 (6.2 or higher) with QtWebEngine
 * zlib
 * QuaZIP
-* TBB (for GCC)
+* TBB (for GCC 11.0 or higher)
 
 ### Usage
 On Windows, this application requires Visual C++ Redistributable for Visual Studio 2019.
