@@ -13,7 +13,7 @@
 #include <QPainter>
 #include <QStackedWidget>
 #include <QtConcurrent>
-#ifndef __clang__
+#ifdef ENABLE_PARALLEL_STL_ALGOS
 #include <execution>
 #endif
 
@@ -206,19 +206,15 @@ std::pair<size_t, bool> SearchResultListView::Search(Channel::Type ch_type, int 
 		res.insert(res.end(), make_move_iterator(r.begin()), make_move_iterator(r.end()));
 	}
 	if (chs.size() > 1)
-#ifndef __clang__
+#ifdef ENABLE_PARALLEL_STL_ALGOS
 		std::sort(std::execution::par, res.begin(), res.end(),
-				  [](const std::shared_ptr<Message>& m1, const std::shared_ptr<Message>& m2)
-				  {
-					  return m1->GetTimeStamp() < m2->GetTimeStamp();
-				  });
 #else
 		std::sort(res.begin(), res.end(),
+#endif
 			[](const std::shared_ptr<Message>& m1, const std::shared_ptr<Message>& m2)
 			{
 				return m1->GetTimeStamp() < m2->GetTimeStamp();
 			});
-#endif
 	mView->SetMessages(std::move(res));
 	return { mView->GetMessages().size(), true };
 }
@@ -324,6 +320,9 @@ QSize SearchResultDelegate::sizeHint(const QStyleOptionViewItem& option, const Q
 	QSize mssize = GetMessageSize(opt, index);
 	height += mssize.height();
 
+	QSize qtsize = GetQuoteSize(opt, index);
+	if (qtsize != QSize(0, 0)) height += qtsize.height() + gSpacing;
+
 	QSize dcsize = GetDocumentSize(opt, index);
 	if (dcsize != QSize(0, 0)) height += dcsize.height() + gSpacing;
 
@@ -348,6 +347,7 @@ void SearchResultDelegate::paint(QPainter* painter, const QStyleOptionViewItem& 
 	painter->setRenderHint(QPainter::TextAntialiasing, true);
 	int y = PaintChannel(painter, crect, 0, opt, index);
 	y = PaintMessage(painter, crect, y, opt, index);
+	y = PaintQuote(painter, crect, y, opt, index);
 	y = PaintDocument(painter, crect, y, opt, index);
 	y = PaintReaction(painter, crect, y, opt, index);
 	y = PaintThread(painter, crect, y, opt, index);

@@ -43,7 +43,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 if(NOT QT_MAJOR_VERSION)
-    set(QT_MAJOR_VERSION 5)
+    set(QT_MAJOR_VERSION 6)
 endif()
 
 find_package(Qt${QT_MAJOR_VERSION} COMPONENTS Core Gui Widgets Concurrent Network WebEngineWidgets REQUIRED)
@@ -97,10 +97,16 @@ add_custom_command(
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Resources/
 		DESTINATION ${INSTALL_RESOURCE_DIR}/Resources)
 
-# std::execution::par might require TBB
-find_package(TBB)
-if(TBB_FOUND)
-    target_link_libraries(${PROJECT_NAME} PRIVATE TBB::tbb)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_PARALLEL_STL_ALGOS)
+elseif (USE_TBB OR (NOT DEFINED USE_TBB AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION GREATER 11.0))
+    #std::execution::par requires TBB for GCC
+    find_package(TBB)
+    if(TBB_FOUND)
+        target_link_libraries(${PROJECT_NAME} PRIVATE TBB::tbb)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_PARALLEL_STL_ALGOS)
+        message(Parallel STL algorithms are enabled)
+    endif()
 endif()
 
 #deploy_qt(${PROJECT_NAME})
