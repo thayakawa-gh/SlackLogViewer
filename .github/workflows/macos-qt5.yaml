@@ -37,7 +37,7 @@ jobs:
         cd SlackLogViewer
         mkdir build
         mkdir SlackLogViewer_macos
-        MACOSX_DEPLOYMENT_TARGET=10.15 cmake -S ./ -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=SlackLogViewer_macos
+        MACOSX_DEPLOYMENT_TARGET=10.15 cmake -S ./ -B build -DCMAKE_BUILD_TYPE=Release -DQT_MAJOR_VERSION=5 -DCMAKE_INSTALL_PREFIX=SlackLogViewer_macos
         cmake --build build --config Release
         cmake --install build
         tar -c SlackLogViewer_macos/SlackLogViewer.app | xz -6 > SlackLogViewer_macos.tar.xz
