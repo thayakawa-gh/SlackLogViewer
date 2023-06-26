@@ -17,6 +17,7 @@
 #include <QGridLayout>
 #include <QPainterPath>
 #include <QtConcurrent>
+#include <QMessageBox>
 #include <quazip/quazip.h>
 #include <quazip/quazipfile.h>
 #include "emoji.h"
@@ -225,15 +226,15 @@ MessageListView::MessageListView()
 	auto* scroll = verticalScrollBar();
 	connect(scroll, SIGNAL(valueChanged(int)), this, SLOT(UpdateCurrentPage()));
 }
-void MessageListView::Construct(Channel::Type type, int index)
+bool MessageListView::Construct(Channel::Type type, int index)
 {
-	mConstructed = true;
 	QString folder_or_zip = gSettings->value("History/LastLogFilePath").toString();
 	QFileInfo info(folder_or_zip);
 	using MessagesAndReplies = std::pair<std::vector<std::shared_ptr<Message>>, std::vector<std::shared_ptr<Message>>>;
 	std::map<QDateTime, QFuture<MessagesAndReplies>> messages_and_replies;
 	std::mutex thmtx;
 	const QString& dirname = GetChannel(type, index).GetDirName();
+
 	if (info.isDir())
 	{
 		//ディレクトリの場合。
@@ -245,12 +246,14 @@ void MessageListView::Construct(Channel::Type type, int index)
 			int end = name.lastIndexOf('.');
 			auto dtstr = name.left(end);
 			QDateTime d = QDateTime::fromString(dtstr, Qt::ISODate);
-			QFile file(folder_or_zip + "/" + dirname + "/" + name);
+			QString filename = folder_or_zip + "/" + dirname + "/" + name;
+			QFile file(filename);
 			if (!file.open(QIODevice::ReadOnly)) exit(-1);
 			QByteArray dat = file.readAll();
-			messages_and_replies.insert(std::pair(std::move(d),
-												  QtConcurrent::run(&Construct_parallel,
-																	type, index, std::move(dat),
+			messages_and_replies.insert(std::make_pair(std::move(d),
+													   QtConcurrent::run(&Construct_parallel,
+																	filename,
+																	std::make_pair(type, index), std::move(dat),
 																	&mThreads, &thmtx)));
 		}
 	}
@@ -278,9 +281,10 @@ void MessageListView::Construct(Channel::Type type, int index)
 			QuaZipFile file(&zip);
 			file.open(QIODevice::ReadOnly);
 			QByteArray dat = file.readAll();
-			messages_and_replies.insert(std::pair(std::move(d),
-												  QtConcurrent::run(&Construct_parallel,
-																	type, index, std::move(dat),
+			messages_and_replies.insert(std::make_pair(std::move(d),
+													   QtConcurrent::run(&Construct_parallel,
+																	info64.name,
+																	std::make_pair(type, index), std::move(dat),
 																	&mThreads, &thmtx)));
 		}
 	}
@@ -288,54 +292,89 @@ void MessageListView::Construct(Channel::Type type, int index)
 	//スレッドごとに得た結果を統合する。
 	QDate prev;
 	int row_count = 0;
+	FILE* errlog = nullptr;
+	auto open = []()
+	{
+		QDir exedir = QCoreApplication::applicationDirPath();
+		QString settingdir = exedir.absolutePath() + "/errorlog.txt";
+		return fopen(settingdir.toLocal8Bit(), "w");
+	};
+
 	for (auto& [dt, fut] : messages_and_replies)
 	{
-		fut.waitForFinished();
-		auto [meses, reps] = fut.result();
-		//mMessages.insert(mMessages.end(), std::make_move_iterator(meses.begin()), std::make_move_iterator(meses.end()));
-		for (auto& mes : meses)
+		//fut.waitForFinished();
+		try
 		{
-			if (*gDateSeparator && (prev.isNull() || mes->GetTimeStamp().date() > prev))
+			auto [meses, reps] = fut.result();
+			//mMessages.insert(mMessages.end(), std::make_move_iterator(meses.begin()), std::make_move_iterator(meses.end()));
+			for (auto& mes : meses)
 			{
-				//日付が変わった場合、セパレータを挿入する。
-				prev = mes->GetTimeStamp().date();
-				auto m = std::make_shared<Message>(type, index, mes->GetTimeStamp());
-				m->SetRow(row_count);
+				if (*gDateSeparator && (prev.isNull() || mes->GetTimeStamp().date() > prev))
+				{
+					//日付が変わった場合、セパレータを挿入する。
+					prev = mes->GetTimeStamp().date();
+					auto m = std::make_shared<Message>(type, index, mes->GetTimeStamp());
+					m->SetRow(row_count);
+					++row_count;
+					mMessages.emplace_back(std::move(m));
+				}
+				mes->SetRow(row_count);
+				mMessages.emplace_back(std::move(mes));
 				++row_count;
-				mMessages.emplace_back(std::move(m));
 			}
-			mes->SetRow(row_count);
-			mMessages.emplace_back(std::move(mes));
-			++row_count;
-		}
-		for (auto& rep : reps)
-		{
-			//リプライはthreadsの方に格納していく必要がある。
-			auto it = mThreads.find(rep->GetThreadTimeStampStr());
-			if (it == mThreads.end())
+			for (auto& rep : reps)
 			{
-				//何故か親メッセージが見つからないリプライがたまにある。
-				//以前は通常のメッセージとして表示していたが、もうめんどいから無視してしまおう。
-				continue;
+				//リプライはthreadsの方に格納していく必要がある。
+				auto it = mThreads.find(rep->GetThreadTimeStampStr());
+				if (it == mThreads.end())
+				{
+					//何故か親メッセージが見つからないリプライがたまにある。
+					//以前は通常のメッセージとして表示していたが、もうめんどいから無視してしまおう。
+					continue;
+				}
+				rep->SetThread(it->second.get());
+				it->second->AddReply(rep);
 			}
-			rep->SetThread(it->second.get());
-			it->second->AddReply(rep);
 		}
+		catch (FatalError& e)
+		{
+			if (errlog == nullptr) errlog = open();
+			fprintf(errlog, "%s\n", e.error().what());
+		};
+	}
+	if (errlog != nullptr)
+	{
+		fclose(errlog);
+		QMessageBox q;
+		q.setText(QString::fromStdString("Error : Loading of the export files was interrupted due to some formatting errors. See errorlog.txt for details."));
+		q.exec();
+		Close();
+		return false;
 	}
 
+	mConstructed = true;
 	static_cast<MessageListModel*>(model())->Open(&mMessages);
 	UpdateCurrentPage();
+	return true;
 }
 std::pair<std::vector<std::shared_ptr<Message>>, std::vector<std::shared_ptr<Message>>>
-MessageListView::Construct_parallel(Channel::Type type, int ch_index, QByteArray data,
-										 std::map<QString, std::shared_ptr<Thread>>* threads, std::mutex* thmtx)
+MessageListView::Construct_parallel(const QString& filename, std::pair<Channel::Type, int> ch_type_index, QByteArray data,
+									std::map<QString, std::shared_ptr<Thread>>* threads, std::mutex* thmtx)
 {
+	auto [type, ch_index] = ch_type_index;
 	std::vector<std::shared_ptr<Message>> messages;
 	std::vector<std::shared_ptr<Message>> replies;
-	QJsonArray a = QJsonDocument::fromJson(data).array();
-	for (const auto& v : a)
+	const QJsonArray a = QJsonDocument::fromJson(data).array();
+
+	for (auto v = a.begin(); v != a.end(); ++v)
 	{
-		QJsonObject o = v.toObject();
+		qsizetype index = v - a.begin();
+
+		auto get_as = FindKeyAs(filename, index);
+		auto value_to = ValueTo(filename, index);
+
+		auto a = *v;//Qt5とQt6で戻り値の型が異なるので、autoで。
+		QJsonObject o = a.toObject();
 		{
 			auto hidden = o.find("hidden");
 			if (hidden != o.end() && hidden.value().toBool() == true) continue;
@@ -346,17 +385,17 @@ MessageListView::Construct_parallel(Channel::Type type, int ch_index, QByteArray
 		std::shared_ptr<Message> mes;
 		if (it != o.end())
 		{
+			const QString& thread_ts = value_to.string(it);
 			//スレッドの親メッセージかリプライは、thread_tsを持つ。
 			auto it2 = o.find("replies");
-			const QString& thread_ts = it.value().toString();
 			if (it2 != o.end())
 			{
 				//"replies"を持つので親メッセージ。
 				//const QJsonArray& ra = it2.value().toArray();
-				const QJsonArray& ausers = o.find("reply_users").value().toArray();
+				const QJsonArray& ausers = get_as.array(o, "reply_users");
 				std::vector<QString> users(ausers.size());
 				for (int i = 0; i < ausers.size(); ++i) users[i] = ausers[i].toString();
-				mes = std::make_shared<Message>(type, ch_index, o, thread_ts);
+				mes = std::make_shared<Message>(filename, index, type, ch_index, o, thread_ts);
 				messages.emplace_back(mes);
 				std::lock_guard<std::mutex> lg(*thmtx);
 				auto [thit, b] = threads->insert(std::make_pair(thread_ts, std::make_shared<Thread>(mes.get(), std::move(users))));
@@ -375,13 +414,13 @@ MessageListView::Construct_parallel(Channel::Type type, int ch_index, QByteArray
 					messages.emplace_back(std::make_shared<Message>(ch_index, o));
 				}
 				else thit->second.AddReply(ch_index, o);*/
-				mes = std::make_shared<Message>(type, ch_index, o, std::move(thread_ts));
+				mes = std::make_shared<Message>(filename, index, type, ch_index, o, std::move(thread_ts));
 				replies.emplace_back(mes);
 			}
 		}
 		else
 		{
-			mes = std::make_shared<Message>(type, ch_index, o);
+			mes = std::make_shared<Message>(filename, index, type, ch_index, o);
 			messages.emplace_back(mes);
 		}
 	}

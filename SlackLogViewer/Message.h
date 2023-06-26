@@ -4,6 +4,7 @@
 #include <optional>
 #include <QString>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QStringList>
 #include <QImage>
 #include <QTextDocumentFragment>
@@ -14,6 +15,81 @@ QString MrkdwnToHtml(const QString& str);
 
 class Thread;
 class Quote;
+
+struct ValueTo
+{
+	ValueTo(const QString& filename, qsizetype index)
+		: filename_(filename), index_(index)
+	{}
+
+	QString string(const QJsonObject::const_iterator& it) const
+	{
+		const auto& v = it.value();
+		if (!v.isString())
+			throw FatalError(QString("key \"") + it.key() + "\" in the " + QString::number(index_) + "th message of \"" + filename_ +
+				"\" is not a string.");
+		return v.toString();
+	}
+	QJsonArray array(const QJsonObject::const_iterator& it) const
+	{
+		const auto& v = it.value();
+		if (!v.isArray())
+			throw FatalError(QString("key \"") + it.key() + "\" in the " + QString::number(index_) + "th message of \"" + filename_ +
+				"\" is not an array.");
+		return v.toArray();
+	}
+	QJsonObject object(const QJsonObject::const_iterator& it) const
+	{
+		const auto& v = it.value();
+		if (!v.isObject())
+			throw FatalError(QString("key \"") + it.key() + "\" in the " + QString::number(index_) + "th message of \"" + filename_ +
+				"\" is not an object.");
+		return v.toObject();
+	}
+
+private:
+	const QString& filename_;
+	qsizetype index_;
+};
+struct FindKeyAs
+{
+	FindKeyAs(const QString& filename, qsizetype index)
+		: value_to(filename, index), filename_(filename), index_(index)
+	{}
+
+	//この関数群、QJsonObjectやQJsonValue、QJsonValueRefあたりを返り値にして、呼び出し元で返り値に対してtoStringを呼ぶと、
+	//どういうわけか例外を投げてクラッシュする。
+	//挙動がQt5と6によって異なっており、またReleaseだと発生しなかったりもするらしい。
+	//原因がわからないが、どうもQJsonValueRefのコピーコンストラクタあたりが何か悪さをしている気がするので、
+	//コピーを避けるためにとりあえずstringとarrayの2つの関数を用意しておく。
+
+	template <class ...Strs>
+	QString string(const QJsonObject& o, const Strs& ...keys) const
+	{
+		return get(o, [this](const auto& v) { return value_to.string(v); }, keys...);
+	}
+	template <class ...Strs>
+	QJsonArray array(const QJsonObject& o, const Strs& ...keys) const
+	{
+		return get(o, [this](const auto& v) { return value_to.array(v); }, keys...);
+	}
+
+private:
+	template <class Ret, class Str, class ...Strs>
+	auto get(const QJsonObject& o, Ret to, const Str& key, const Strs& ...keys) const
+	{
+		QJsonObject::const_iterator it = o.find(key);
+		if (it == o.end())
+			throw FatalError(QString("key \"") + key + "\" not found in the " + QString::number(index_) + "th message of \"" + filename_ + "\".");
+		if constexpr (sizeof...(Strs) != 0)
+			return get(value_to.object(it), to, keys...);
+		else
+			return to(it);
+	}
+	ValueTo value_to;
+	const QString& filename_;
+	qsizetype index_;
+};
 
 class Reaction
 {
@@ -38,8 +114,8 @@ class Message
 {
 public:
 
-	Message(Channel::Type, int ch, const QJsonObject& o);
-	Message(Channel::Type, int ch, const QJsonObject& o, QString threads_ts);//リプライ用。
+	Message(const QString& filename, qsizetype index, Channel::Type, int ch, const QJsonObject& o);
+	Message(const QString& filename, qsizetype index, Channel::Type, int ch, const QJsonObject& o, QString threads_ts);//リプライ用。
 
 	Message(Channel::Type, int ch, const QDateTime& datetime);//日付のセパレータ用。
 

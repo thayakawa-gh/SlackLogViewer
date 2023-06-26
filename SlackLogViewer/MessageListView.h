@@ -102,10 +102,12 @@ public:
 
 	MessageListView();
 
-	void Construct(Channel::Type type, int index);
+	bool Construct(Channel::Type type, int index);
 private:
+	//Qt5のQtConcurrent::runは可変長引数になっておらず、ここの関数の引数は5個以下でないと動かない。
+	//よって、typeとch_indexを一つにまとめておく。
 	static std::pair<std::vector<std::shared_ptr<Message>>, std::vector<std::shared_ptr<Message>>>
-		Construct_parallel(Channel::Type type, int ch_index, QByteArray data,
+		Construct_parallel(const QString& filename, std::pair<Channel::Type, int> ch_type_index, QByteArray data,
 						   std::map<QString, std::shared_ptr<Thread>>* threads, std::mutex* thmtx);
 public:
 	bool IsConstructed() const { return mConstructed; }

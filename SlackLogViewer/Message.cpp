@@ -5,9 +5,11 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QRegularExpression>
+#include <QException>
 #include "Message.h"
 #include "AttachedFile.h"
 #include "emoji.h"
+#include <optional>
 
 //絵文字、ユーザー名、チャンネル名、urlを置き換える。
 //これらはSlack独自表記になっている。
@@ -147,7 +149,7 @@ QString MrkdwnToHtml(const QString& str)
 		/*"\"pt>" + */s.join("")/* + "</font>"*/;
 }
 
-Message::Message(Channel::Type type, int ch, const QJsonObject& o)
+Message::Message(const QString& filename, qsizetype index, Channel::Type type, int ch, const QJsonObject& o)
 	: mChannelType(type), mChannel(ch), mRow(0), mThread(nullptr)
 {
 	mMessage = o.find("text").value().toString();
@@ -155,42 +157,39 @@ Message::Message(Channel::Type type, int ch, const QJsonObject& o)
 	mTimeStamp.setSecsSinceEpoch(ts.toDouble());
 	mTimeStampStr = mTimeStamp.toString("yyyy/MM/dd hh:mm:ss");
 
+	auto get_as = FindKeyAs(filename, index);
+	auto value_to = ValueTo(filename, index);
+
 	auto sub = o.find("subtype");
 
-	if (sub.value() == "bot_message")
+	if (sub != o.end() && value_to.string(sub) == "bot_message")
 	{
-		auto it = o.find("bot_id");
-		mUserID = it.value().toString();
+		mUserID = get_as.string(o, "bot_id");
 	}
-	else if (sub.value() == "file_comment")
+	else if (sub != o.end() && value_to.string(sub) == "file_comment")
 	{
-		auto it = o.find("comment");
-		mUserID = it.value().toObject().find("user").value().toString();
+		//auto com = find_key(o, "comment").toObject();
+		mUserID = get_as.string(o, "comment", "user");
 	}
 	else
-		//if (sub == o.end() ||
-		//sub.value() == "channel_join" ||
-		//sub.value() == "channel_purpose" ||
-		//sub.value() == "pinned_item" ||
-		//sub.value() == "channel_name")
 	{
-		auto it = o.find("user");
-		if (it != o.end()) mUserID = it.value().toString();
 		//どうもエクスポートしたデータが破損しているケースがあるらしい。
 		//「メッセージがあった」という記録のみがあって、メッセージの内容やユーザーなどの必須情報が一切欠落している。
 		//意味がわからんがどうしようもないので、ユーザー情報は空にしておく。
+		auto it = o.find("user");
+		if (it != o.end()) mUserID = value_to.string(it);
 	}
 
 	auto file = o.find("files");
 	if (file != o.end())
 	{
 		//mFiles = std::make_unique<AttachedFiles>(file.value().toArray());
-		QJsonArray ar = file.value().toArray();
+		QJsonArray ar = value_to.array(file);
 		mFiles.reserve(ar.size());
 		for (const auto& a : ar)
 		{
-			const QJsonObject& f = a.toObject();
-			const QString& ftype = f.find("mimetype").value().toString();
+			QJsonObject f = a.toObject();
+			QString ftype = get_as.string(f, "mimetype");
 			if (ftype.contains("text")) mFiles.emplace_back(std::make_unique<TextFile>(f));
 			else if (ftype.contains("image")) mFiles.emplace_back(std::make_unique<ImageFile>(f));
 			else if (ftype.contains("pdf")) mFiles.emplace_back(std::make_unique<PDFFile>(f));
@@ -201,25 +200,25 @@ Message::Message(Channel::Type type, int ch, const QJsonObject& o)
 	auto quotes = o.find("attachments");
 	if (quotes != o.end())
 	{
-		QJsonArray ar = quotes.value().toArray();
+		QJsonArray ar = value_to.array(quotes);
 		mQuotes.reserve(ar.size());
 		int index = 0;
 		for (const auto& a : ar)
 		{
 			QJsonObject q = a.toObject();
 			QString service_name;
-			if (auto it = q.find("service_name"); it != q.end()) service_name = it.value().toString();
+			if (auto it = q.find("service_name"); it != q.end()) service_name = value_to.string(it);
 			QString service_icon;
-			if (auto it = q.find("service_icon"); it != q.end()) service_icon = it.value().toString();
+			if (auto it = q.find("service_icon"); it != q.end()) service_icon = value_to.string(it);
 			QString title;
-			if (auto it = q.find("title"); it != q.end()) title = it.value().toString();
+			if (auto it = q.find("title"); it != q.end()) title = value_to.string(it);
 			QString title_link;
-			if (auto it = q.find("from_url"); it != q.end()) title_link = it.value().toString();
-			if (auto it = q.find("title_link"); it != q.end() && title_link.isEmpty()) title_link = it.value().toString();
+			if (auto it = q.find("from_url"); it != q.end()) title_link = value_to.string(it);
+			if (auto it = q.find("title_link"); it != q.end() && title_link.isEmpty()) title_link = value_to.string(it);
 			QString text;
-			if (auto it  = q.find("text"); it != q.end()) text = it.value().toString();
+			if (auto it  = q.find("text"); it != q.end()) text = value_to.string(it);
 			QString image_url;
-			if (auto it = q.find("image_url"); it != q.end()) image_url = it.value().toString();
+			if (auto it = q.find("image_url"); it != q.end()) image_url = value_to.string(it);
 
 			mQuotes.emplace_back(
 				std::make_unique<Quote>(ts, index, service_name, service_icon, title, title_link, text, image_url));
@@ -235,17 +234,17 @@ Message::Message(Channel::Type type, int ch, const QJsonObject& o)
 		for (auto a : ar)
 		{
 			QJsonObject ro = a.toObject();
-			QJsonArray uar = ro["users"].toArray();
+			QJsonArray uar = get_as.array(ro, "users");
 			QStringList users;
 			users.reserve(uar.size());
 			for (auto u : uar)
 				users.append(u.toString());
-			mReactions.emplace_back(ro.find("name").value().toString(), std::move(users));
+			mReactions.emplace_back(get_as.string(ro, "name"), std::move(users));
 		}
 	}
 }
-Message::Message(Channel::Type type, int ch, const QJsonObject& o, QString threads_ts)
-	: Message(type, ch, o)
+Message::Message(const QString& filename, qsizetype index, Channel::Type type, int ch, const QJsonObject& o, QString threads_ts)
+	: Message(filename, index, type, ch, o)
 {
 	mThreadTimeStampStr = std::move(threads_ts);
 }

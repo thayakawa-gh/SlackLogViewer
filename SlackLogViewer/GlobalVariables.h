@@ -10,6 +10,7 @@
 #include <memory>
 #include <QSettings>
 #include <QFont>
+#include <QException>
 //#include <QTextCodec>
 
 class QDir;
@@ -44,11 +45,17 @@ private:
 	std::string mCopyright;
 };
 
-struct FatalError
+struct FatalError : public QException
 {
-	FatalError(const char* m) : mMessage(m) {}
+	FatalError(std::exception& err) : mError(err) {}
+	FatalError(const char* str) : mError(str) {}
+	FatalError(const QByteArray& arr) : mError(arr) {}
+	FatalError(const QString& str) : mError(str.toLocal8Bit()) {}
+	virtual void raise() const { throw* this; }
+	virtual QException* clone() const { return new FatalError(*this); }
+	std::exception error() const { return mError; }
 private:
-	std::string mMessage;
+	std::exception mError;
 };
 
 extern VersionInfo gVersionInfo;

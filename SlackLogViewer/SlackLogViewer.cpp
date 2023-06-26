@@ -354,8 +354,12 @@ void SlackLogViewer::LoadChannels()
 	QJsonDocument channels = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "channels.json");
 	if (channels.isNull())
 	{
-		//channels.jsonの有無はこの関数の呼び出し元でチェックしているので、ここでは行わなくて良い。
 		return;
+		//public channelが一つもないのは想定外であるので、強制終了する。
+		//QMessageBox q;
+		//q.setText(QString::fromStdString("Error : This workspace has no public channels."));
+		//q.exec();
+		//exit(EXIT_FAILURE);
 	}
 	const QJsonArray& arr = channels.array();
 
@@ -428,7 +432,7 @@ void SlackLogViewer::LoadGroupMessages()
 	const QJsonArray& arr = dms.array();
 	ChannelTreeModel* model = static_cast<ChannelTreeModel*>(mChannelView->model());
 	QModelIndex parent = model->index((int)Channel::GROUP_MESSAGE, 0, QModelIndex());
-	model->insertRows(0, arr.size(), parent);
+	if (arr.size() > 0) model->insertRows(0, arr.size(), parent);
 
 	int row = 0;
 	for (auto gm : arr)
@@ -573,7 +577,7 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 	LoadGroupMessages();
 	UpdateRecentFiles();
 
-	SetChannel(Channel::CHANNEL, 0);
+	if (!gChannelVector.empty()) SetChannel(Channel::CHANNEL, 0);
 }
 void SlackLogViewer::OpenOption()
 {
@@ -594,7 +598,7 @@ void SlackLogViewer::SetChannel(Channel::Type type, int index)
 		if (type == Channel::CHANNEL) return gChannelVector[index];
 		else if (type == Channel::DIRECT_MESSAGE) return gDMUserVector[index];
 		else if (type == Channel::GROUP_MESSAGE) return gGMUserVector[index];
-		else throw std::string("invalid channel type");
+		else throw FatalError("invalid channel type");
 	}();
 	//setCurrentIndexはCreateより先に呼ばなければならない。
 	//でないと、MessagePagesにwidthがフィットされない状態でdelegateのsizeHintが呼ばれてしまうらしい。
@@ -603,7 +607,12 @@ void SlackLogViewer::SetChannel(Channel::Type type, int index)
 	mStack->setCurrentWidget(mChannelPages);
 	if (!m->IsConstructed())
 	{
-		m->Construct(type, index);
+		bool res = m->Construct(type, index);
+		if (!res)
+		{
+			//falseが返ってくるということは、何かしら読み込みに失敗している。
+			return;
+		}
 	}
 	int npages = m->GetNumOfPages();
 	int page = m->GetCurrentPage();
@@ -706,9 +715,12 @@ void SlackLogViewer::CacheAllFiles(CacheStatus::Channel ch, CacheType type)
 	{
 		chs.resize(gChannelVector.size() + gDMUserVector.size() + gGMUserVector.size());
 		int i = 0;
-		for (auto& c : gChannelVector) { chs[i] = { Channel::CHANNEL, i }; ++i; }
-		for (auto& c : gDMUserVector) { chs[i] = { Channel::DIRECT_MESSAGE, i }; ++i; }
-		for (auto& c : gGMUserVector) { chs[i] = { Channel::GROUP_MESSAGE, i }; ++i; }
+		int j = 0;
+		for (auto& c : gChannelVector) { chs[i] = { Channel::CHANNEL, j }; ++i, ++j; }
+		j = 0;
+		for (auto& c : gDMUserVector) { chs[i] = { Channel::DIRECT_MESSAGE, j }; ++i, ++j; }
+		j = 0;
+		for (auto& c : gGMUserVector) { chs[i] = { Channel::GROUP_MESSAGE, j }; ++i, ++j; }
 	}
 	else if (ch == CacheStatus::CURRENTCH)
 	{
@@ -828,7 +840,7 @@ QVariant ChannelTreeModel::data(const QModelIndex& index, int role) const
 		{
 			auto& member = GetChannel(Channel::DIRECT_MESSAGE, index.row()).GetMembers().first();
 			auto uit = gUsers.find(member);
-			if (uit == gUsers.end()) throw std::string("user not found");
+			if (uit == gUsers.end()) throw FatalError(("user id:\"" + member +"\" not found").toLocal8Bit());
 			return uit->GetIcon();
 		}
 		else if (ch->GetType() == Channel::GROUP_MESSAGE)
