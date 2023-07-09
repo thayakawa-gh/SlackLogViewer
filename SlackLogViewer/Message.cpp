@@ -189,7 +189,8 @@ Message::Message(const QString& filename, qsizetype index, Channel::Type type, i
 		for (const auto& a : ar)
 		{
 			QJsonObject f = a.toObject();
-			QString ftype = get_as.string(f, "mimetype");
+			auto it = f.find("mimetype");
+			QString ftype = it == f.end() ? "" : it->toString();
 			if (ftype.contains("text")) mFiles.emplace_back(std::make_unique<TextFile>(f));
 			else if (ftype.contains("image")) mFiles.emplace_back(std::make_unique<ImageFile>(f));
 			else if (ftype.contains("pdf")) mFiles.emplace_back(std::make_unique<PDFFile>(f));

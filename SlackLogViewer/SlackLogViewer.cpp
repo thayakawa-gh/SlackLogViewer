@@ -362,6 +362,7 @@ void SlackLogViewer::LoadChannels()
 		//exit(EXIT_FAILURE);
 	}
 	const QJsonArray& arr = channels.array();
+	if (arr.size() == 0) return;
 
 	ChannelTreeModel* model = static_cast<ChannelTreeModel*>(mChannelView->model());
 	QModelIndex index = model->index((int)Channel::CHANNEL, 0, QModelIndex());
@@ -397,6 +398,9 @@ void SlackLogViewer::LoadDirectMessages()
 	QJsonDocument dms = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "dms.json");
 	if (dms.isNull()) return;
 	const QJsonArray& arr = dms.array();
+	//どうもファイルが存在する場合はisNullは空配列でもfalseになるらしい。arrのサイズもチェックする。
+	//dms.jsonが空配列という状況が今ひとつ想像できないが、
+	if (arr.size() == 0) return;
 	ChannelTreeModel* model = static_cast<ChannelTreeModel*>(mChannelView->model());
 	QModelIndex parent = model->index((int)Channel::DIRECT_MESSAGE, 0, QModelIndex());
 	model->insertRows(0, arr.size(), parent);
@@ -430,6 +434,7 @@ void SlackLogViewer::LoadGroupMessages()
 	QJsonDocument dms = LoadJsonFile(gSettings->value("History/LastLogFilePath").toString(), "mpims.json");
 	if (dms.isNull()) return;
 	const QJsonArray& arr = dms.array();
+	if (arr.size() == 0) return;
 	ChannelTreeModel* model = static_cast<ChannelTreeModel*>(mChannelView->model());
 	QModelIndex parent = model->index((int)Channel::GROUP_MESSAGE, 0, QModelIndex());
 	if (arr.size() > 0) model->insertRows(0, arr.size(), parent);
