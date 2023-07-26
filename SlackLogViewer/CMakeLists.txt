@@ -52,7 +52,7 @@ find_package(QuaZip-Qt${QT_MAJOR_VERSION} REQUIRED)
 file(GLOB _SOURCES *.cpp)
 
 if(WIN32)
-    add_executable(${PROJECT_NAME} WIN32 ${_SOURCES} ${PruductVersionFiles})
+    add_executable(${PROJECT_NAME} WIN32 ${_SOURCES} qt5.natvis ${PruductVersionFiles})
 elseif(APPLE)
     add_executable(${PROJECT_NAME} MACOSX_BUNDLE ${_SOURCES})
 else()

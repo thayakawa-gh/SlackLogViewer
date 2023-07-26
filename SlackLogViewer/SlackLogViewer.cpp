@@ -27,6 +27,7 @@
 #include <QSplitter>
 #include <QtConcurrent>
 #include <QMessageBox>
+#include <QException>
 
 SlackLogViewer::SlackLogViewer(QWidget* parent)
 	: QMainWindow(parent), mImageView(nullptr), mTextView(nullptr), mSearchView(nullptr)
@@ -408,12 +409,21 @@ void SlackLogViewer::LoadDirectMessages()
 	int row = 0;
 	for (auto dm : arr)
 	{
-		const QString& id = dm.toObject()["id"].toString();
-		const QJsonArray& arr_ = dm.toObject()["members"].toArray();
-		QString n = gUsers.find(arr_.first().toString()).value().GetName();
+		FindKeyAs find_as("dms.json", row);
+		auto o = dm.toObject();
+		const QString& id = find_as.string(o, "id");
+		const QJsonArray& arr_ = find_as.array(o, "members");
+		//QString n = gUsers.find(arr_.first().toString()).value().GetName();
+		if (arr_.size() < 2) throw FatalError("The size of array \"members\" is less than 2.");
+		const QJsonValue& v = arr_[0];
+		if (!v.isString()) throw FatalError("Non-string value exists in the array \"members\" of \"dms.json\".");
+		auto it = gUsers.find(v.toString());
+		if (it == gUsers.end()) throw FatalError("The user id \"" + v.toString() +"\" not found in users.json.");
+		const QString& n = it.value().GetName();
 		QVector<QString> members(arr_.size());
 		for (int i = 0; i < members.size(); ++i)
 		{
+			if (!arr_[i].isString()) throw FatalError("Non-string value exists in the array \"members\" of \"dms.json\".");
 			members[i] = arr_[i].toString();
 		}
 		model->SetDMUserInfo(row, id, n, members);
@@ -442,12 +452,16 @@ void SlackLogViewer::LoadGroupMessages()
 	int row = 0;
 	for (auto gm : arr)
 	{
-		const QString& id = gm.toObject()["id"].toString();
-		const QString& name = gm.toObject()["name"].toString();
-		const QJsonArray& arr_ = gm.toObject()["members"].toArray();
+		FindKeyAs find_as("mpims.json", row);
+		auto o = gm.toObject();
+		const QString& id = find_as.string(o, "id");
+		const QString& name = find_as.string(o, "name");
+		const QJsonArray& arr_ = find_as.array(o, "members");
+		if (arr_.size() < 2) throw FatalError("The size of array \"members\" in \"mpims.json\" is less than 2.");
 		QVector<QString> members(arr_.size());
 		for (int i = 0; i < members.size(); ++i)
 		{
+			if (!arr_[i].isString()) throw FatalError("Non-string value exists in the array \"members\" of \"mpims.json\".");
 			members[i] = arr_[i].toString();
 		}
 		model->SetGMUserInfo(row, id, name, members);
@@ -575,14 +589,23 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 	}
 	gSettings->setValue("History/LogFilePaths", ws);
 
-	ClearUsersAndChannels();
-	LoadUsers();
-	LoadChannels();
-	LoadDirectMessages();
-	LoadGroupMessages();
-	UpdateRecentFiles();
-
-	if (!gChannelVector.empty()) SetChannel(Channel::CHANNEL, 0);
+	try
+	{
+		ClearUsersAndChannels();
+		LoadUsers();
+		LoadChannels();
+		LoadDirectMessages();
+		LoadGroupMessages();
+		UpdateRecentFiles();
+		if (!gChannelVector.empty()) SetChannel(Channel::CHANNEL, 0);
+	}
+	catch (const FatalError& e)
+	{
+		QErrorMessage* m = new QErrorMessage(this);
+		m->setAttribute(Qt::WA_DeleteOnClose);
+		m->showMessage(e.error().what());
+		ClearUsersAndChannels();
+	}
 }
 void SlackLogViewer::OpenOption()
 {
