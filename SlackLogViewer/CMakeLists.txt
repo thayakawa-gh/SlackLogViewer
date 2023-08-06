@@ -50,9 +50,10 @@ find_package(Qt${QT_MAJOR_VERSION} COMPONENTS Core Gui Widgets Concurrent Networ
 find_package(QuaZip-Qt${QT_MAJOR_VERSION} REQUIRED)
 
 file(GLOB _SOURCES *.cpp)
+file(GLOB _NATVIS *.natvis)
 
 if(WIN32)
-    add_executable(${PROJECT_NAME} WIN32 ${_SOURCES} qt5.natvis ${PruductVersionFiles})
+    add_executable(${PROJECT_NAME} WIN32 ${_SOURCES} ${_NATVIS} ${PruductVersionFiles})
 elseif(APPLE)
     add_executable(${PROJECT_NAME} MACOSX_BUNDLE ${_SOURCES})
 else()
