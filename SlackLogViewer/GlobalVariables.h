@@ -47,15 +47,16 @@ private:
 
 struct FatalError : public QException
 {
-	FatalError(std::exception& err) : mError(err) {}
+	//FatalError(std::exception& err) : mError(err) {}
 	FatalError(const char* str) : mError(str) {}
 	FatalError(const QByteArray& arr) : mError(arr) {}
-	FatalError(const QString& str) : mError(str.toLocal8Bit()) {}
+	FatalError(const QString& str) : mError(str) {}
 	virtual void raise() const { throw* this; }
 	virtual QException* clone() const { return new FatalError(*this); }
-	std::exception error() const { return mError; }
+	//std::exception error() const { return mError; }
+	QString error() const { return mError; }
 private:
-	std::exception mError;
+	QString mError;
 };
 
 extern VersionInfo gVersionInfo;

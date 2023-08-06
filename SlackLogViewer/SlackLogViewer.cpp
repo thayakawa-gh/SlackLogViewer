@@ -603,7 +603,7 @@ void SlackLogViewer::OpenLogFile(const QString& path)
 	{
 		QErrorMessage* m = new QErrorMessage(this);
 		m->setAttribute(Qt::WA_DeleteOnClose);
-		m->showMessage(e.error().what());
+		m->showMessage(e.error());
 		ClearUsersAndChannels();
 	}
 }

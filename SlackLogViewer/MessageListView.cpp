@@ -339,7 +339,7 @@ bool MessageListView::Construct(Channel::Type type, int index)
 		catch (FatalError& e)
 		{
 			if (errlog == nullptr) errlog = open();
-			fprintf(errlog, "%s\n", e.error().what());
+			fprintf(errlog, "%s\n", e.error().toLocal8Bit().data());
 		};
 	}
 	if (errlog != nullptr)
