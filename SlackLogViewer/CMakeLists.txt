@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 set(VER_MAJOR 1)
 set(VER_MINOR 2)
 set(VER_PATCH 3)
-set(VER_REVISION 1)
+set(VER_REVISION 2)
 set(COMPANY_COPYRIGHT "Copyright(C) 2020-2023 T.Hayakawa")
 
 project(SlackLogViewer VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}.${VER_REVISION}")
