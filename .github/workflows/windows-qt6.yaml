@@ -11,7 +11,7 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.2.4'
+        version: '6.5.3'
         target: 'desktop'
         dir: '${{github.workspace}}/qt/'
         modules: qtwebengine qtwebchannel qtpositioning qt5compat
@@ -40,8 +40,8 @@ jobs:
         # TODO: think of better openssl preparation, which is qt binary dependency and no source is required
         mkdir openssl
         cd openssl
-        curl -O -L https://www.firedaemon.com/download-firedaemon-openssl-1-zip
-        7z e download-firedaemon-openssl-1-zip openssl-1.1/x64/bin/libcrypto-1_1-x64.dll openssl-1.1/x64/bin/libssl-1_1-x64.dll
+        curl -O -L https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.2.1.zip
+        7z e openssl-3.2.1.zip openssl-3/x64/bin/libcrypto-3-x64.dll openssl-3/x64/bin/libssl-3-x64.dll
         dir
         cd ..
     - name: Build
