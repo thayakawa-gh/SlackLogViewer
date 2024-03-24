@@ -152,7 +152,8 @@ QString MrkdwnToHtml(const QString& str)
 Message::Message(const QString& filename, qsizetype index, Channel::Type type, int ch, const QJsonObject& o)
 	: mChannelType(type), mChannel(ch), mRow(0), mThread(nullptr)
 {
-	mMessage = o.find("text").value().toString();
+	auto text_it = o.find("text");
+	if (text_it != o.end()) mMessage = text_it.value().toString();
 	QString ts = o.find("ts").value().toString();
 	mTimeStamp.setSecsSinceEpoch(ts.toDouble());
 	mTimeStampStr = mTimeStamp.toString("yyyy/MM/dd hh:mm:ss");
