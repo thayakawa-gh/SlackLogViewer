@@ -19,6 +19,10 @@ jobs:
       shell: bash
       run: |
         vcpkg install zlib:x64-windows-static-md
+    - name: Install bzip2
+      shell: bash
+      run: |
+        vcpkg install bzip2:x64-windows-static-md
     - name: Install QuaZIP
       shell: bash
       env:
