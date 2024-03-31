@@ -20,19 +20,29 @@ QString CachePath(CacheType type, const QString& id)
 }
 
 AttachedFile::AttachedFile(CacheType type, const QJsonObject& o)
-	: mDownloader(nullptr)
 {
 	mType = type;
-	mFileSize = o.find("size").value().toInt();
-	mPrettyType = o.find("pretty_type").value().toString();
-	mUrl = o.find("url_private_download").value().toString();
-	mID = o.find("id").value().toString();
-	mFileName = o.find("name").value().toString();
-	mExtension = "." + o.find("filetype").value().toString();
-	mUserID = o.find("user").value().toString();
-	QDateTime dt;
-	dt.setSecsSinceEpoch(o.find("timestamp").value().toInt());
-	mTimeStampStr = dt.toString("yyyy/MM/dd hh:mm:ss");
+	auto size_it = o.find("size");
+	if (size_it != o.end()) mFileSize = size_it.value().toInt();
+	auto pretty_type_it = o.find("pretty_type");
+	if (pretty_type_it != o.end()) mPrettyType = pretty_type_it.value().toString();
+	auto url_it = o.find("url_private_download");
+	if (url_it != o.end()) mUrl = url_it.value().toString();
+	auto id_it = o.find("id");
+	if (id_it != o.end()) mID = id_it.value().toString();
+	auto name_it = o.find("name");
+	if (name_it != o.end()) mFileName = name_it.value().toString();
+	auto ext_it = o.find("filetype");
+	if (ext_it != o.end()) mExtension = "." + ext_it.value().toString();
+	auto user_it = o.find("user");
+	if (user_it != o.end()) mUserID = user_it.value().toString();
+	auto ts_it = o.find("timestamp");
+	if (ts_it != o.end())
+	{
+		QDateTime dt;
+		dt.setSecsSinceEpoch(ts_it.value().toInt());
+		mTimeStampStr = dt.toString("yyyy/MM/dd hh:mm:ss");
+	}
 }
 AttachedFile::AttachedFile(CacheType type, const QString& url, const QString& message_ts, int index)
 	: mDownloader(nullptr)

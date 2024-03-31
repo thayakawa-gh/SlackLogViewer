@@ -203,9 +203,9 @@ public:
 
 protected:
 
-	CacheType mType;
-	int mFileSize;
-	mutable FileDownloader* mDownloader;
+	CacheType mType = CacheType::OTHERS;
+	int mFileSize = 0;
+	mutable FileDownloader* mDownloader = nullptr;
 	QString mID;
 	QString mPrettyType;
 	QString mUrl;
