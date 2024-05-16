@@ -365,12 +365,28 @@ void SlackLogViewer::LoadChannels()
 	const QJsonArray& arr = channels.array();
 	if (arr.size() == 0) return;
 
+	QVector<QJsonObject> channelList;
+	for (const QJsonValue& val : arr)
+	{
+		channelList.append(val.toObject());
+	}
+
+	std::sort(channelList.begin(), channelList.end(), [](const QJsonObject& a, const QJsonObject& b) {
+		return a["name"].toString().compare(b["name"].toString(), Qt::CaseInsensitive) < 0;
+	});
+
+	QJsonArray sortedArr;
+	for (const QJsonObject& obj : channelList)
+	{
+		sortedArr.append(obj);
+	}
+
 	ChannelTreeModel* model = static_cast<ChannelTreeModel*>(mChannelView->model());
 	QModelIndex index = model->index((int)Channel::CHANNEL, 0, QModelIndex());
-	model->insertRows(0, arr.size(), index);
+	model->insertRows(0, sortedArr.size(), index);
 
 	int row = 0;
-	for (auto c : arr)
+	for (auto c : sortedArr)
 	{
 		const QString& id = c.toObject()["id"].toString();
 		const QString& name = c.toObject().value("name").toString();
@@ -385,7 +401,7 @@ void SlackLogViewer::LoadChannels()
 		++row;
 	}
 
-	for (int i = 0; i < arr.size(); ++i)
+	for (int i = 0; i < sortedArr.size(); ++i)
 	{
 		MessageListView* mw = new MessageListView();
 		mw->setModel(new MessageListModel(mw));
