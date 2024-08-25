@@ -418,8 +418,9 @@ void SlackLogViewer::LoadDirectMessages()
 		const QJsonValue& v = arr_[0];
 		if (!v.isString()) throw FatalError("Non-string value exists in the array \"members\" of \"dms.json\".");
 		auto it = gUsers.find(v.toString());
-		if (it == gUsers.end()) throw FatalError("The user id \"" + v.toString() +"\" not found in users.json.");
-		const QString& n = it.value().GetName();
+		//if (it == gUsers.end()) throw FatalError("The user id \"" + v.toString() +"\" not found in users.json.");
+		const User& user = it != gUsers.end() ? it.value() : *gEmptyUser;
+		const QString& n = user.GetName();
 		QVector<QString> members(arr_.size());
 		for (int i = 0; i < members.size(); ++i)
 		{
@@ -868,8 +869,9 @@ QVariant ChannelTreeModel::data(const QModelIndex& index, int role) const
 		{
 			auto& member = GetChannel(Channel::DIRECT_MESSAGE, index.row()).GetMembers().first();
 			auto uit = gUsers.find(member);
-			if (uit == gUsers.end()) throw FatalError(("user id:\"" + member +"\" not found").toLocal8Bit());
-			return uit->GetIcon();
+			//if (uit == gUsers.end()) throw FatalError(("user id:\"" + member +"\" not found").toLocal8Bit());
+			const User& user = uit != gUsers.end() ? uit.value() : *gEmptyUser;
+			return user.GetIcon();
 		}
 		else if (ch->GetType() == Channel::GROUP_MESSAGE)
 		{
