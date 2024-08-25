@@ -23,8 +23,6 @@ make install
 ```
 
 #### Note
-The Qt major version is assumed to be 6 by default. Please add an option `-DQT_MAJOR_VERSION=5` in the cmake command if you want to build with Qt5.  
-
 This application is written in C++17 and confirmed to be buildable with the following compilers.
 
 * Visual Studio 2019/2022
@@ -33,7 +31,7 @@ This application is written in C++17 and confirmed to be buildable with the foll
 
 Make sure you have installed the following dependencies.
 
-* Qt5 (5.14 or higher) or Qt6 (6.2 or higher) with QtWebEngine
+* Qt6 (6.2 or higher) with QtWebEngine
 * zlib
 * QuaZIP
 * TBB (for GCC 11.0 or higher)
