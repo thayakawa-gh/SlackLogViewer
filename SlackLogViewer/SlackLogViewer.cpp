@@ -688,9 +688,9 @@ void SlackLogViewer::SetChannelAndIndex(Channel::Type type, int ch, int messager
 }
 void SlackLogViewer::JumpToPage(int page)
 {
-	int row = mChannelView->currentIndex().row();
+	int row = mChannelPages->currentIndex();
 	if (row == -1) return;
-	MessageListView* m = static_cast<MessageListView*>(mChannelPages->widget(row));
+	MessageListView* m = static_cast<MessageListView*>(mChannelPages->currentWidget());
 	m->ScrollToRow(page * gSettings->value("NumOfMessagesPerPage").toInt());
 }
 void SlackLogViewer::OpenThread(const Message* m)
