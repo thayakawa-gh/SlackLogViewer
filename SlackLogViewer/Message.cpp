@@ -165,7 +165,8 @@ Message::Message(const QString& filename, qsizetype index, Channel::Type type, i
 
 	if (sub != o.end() && value_to.string(sub) == "bot_message")
 	{
-		mUserID = get_as.string(o, "bot_id");
+		if (auto id = o.find("bot_id"); id != o.end()) mUserID = value_to.string(id);
+		else if (auto id = o.find("user"); id != o.end()) mUserID = value_to.string(id);
 	}
 	else if (sub != o.end() && value_to.string(sub) == "file_comment")
 	{
