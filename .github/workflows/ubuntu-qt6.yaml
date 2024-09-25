@@ -38,7 +38,7 @@ jobs:
         make -j4
         make install
     - name: Upload
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: ubuntu
         path: SlackLogViewer/SlackLogViewer_ubuntu
