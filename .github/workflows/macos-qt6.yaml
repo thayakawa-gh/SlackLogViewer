@@ -4,11 +4,11 @@ on: [ push, pull_request ]
 
 jobs:
   build:
-    runs-on: macos-12
+    runs-on: macos-26
     steps:
     - uses: actions/checkout@v2
     - name: Install Qt
-      uses: jurplel/install-qt-action@v4
+      uses: jurplel/install-qt-action@v3
       with:
         version: '6.10.*'
         target: 'desktop'
@@ -23,7 +23,7 @@ jobs:
         git -C quazip checkout 9d3aa3ee948c1cde5a9f873ecbc3bb229c1182ee
         mkdir 'build'
         mkdir 'installed'
-        MACOSX_DEPLOYMENT_TARGET=10.15 cmake -S quazip -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+        MACOSX_DEPLOYMENT_TARGET=14 cmake -S quazip -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
         cmake --build build --config Release 
         cmake --install build --prefix installed
         cd ..
@@ -37,7 +37,7 @@ jobs:
         cd SlackLogViewer
         mkdir build
         mkdir SlackLogViewer_macos_qt6
-        MACOSX_DEPLOYMENT_TARGET=10.15 cmake -S ./ -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=SlackLogViewer_macos_qt6 -DQT_MAJOR_VERSION=6 -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+        MACOSX_DEPLOYMENT_TARGET=14 cmake -S ./ -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=SlackLogViewer_macos_qt6 -DQT_MAJOR_VERSION=6 -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
         cmake --build build --config Release
         cmake --install build
         tar -c SlackLogViewer_macos_qt6/SlackLogViewer.app | xz -6 > SlackLogViewer_macos_qt6.tar.xz
