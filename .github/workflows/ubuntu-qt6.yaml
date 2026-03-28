@@ -8,9 +8,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Qt
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       with:
-        version: '6.5.3'
+        version: '6.10.*'
         target: 'desktop'
         dir: '${{github.workspace}}/qt/'
         modules: qtwebengine qtwebchannel qtpositioning qt5compat
@@ -38,7 +38,7 @@ jobs:
         make -j4
         make install
     - name: Upload
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v6
       with:
         name: ubuntu
         path: SlackLogViewer/SlackLogViewer_ubuntu

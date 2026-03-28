@@ -8,9 +8,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Qt
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       with:
-        version: '6.5.3'
+        version: '6.10.*'
         target: 'desktop'
         arch: 'clang_64'
         dir: '${{github.workspace}}/qt/'
@@ -42,7 +42,7 @@ jobs:
         cmake --install build
         tar -c SlackLogViewer_macos_qt6/SlackLogViewer.app | xz -6 > SlackLogViewer_macos_qt6.tar.xz
     - name: Upload
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v6
       with:
         name: macos-qt6
         path: SlackLogViewer/SlackLogViewer_macos_qt6.tar.xz
