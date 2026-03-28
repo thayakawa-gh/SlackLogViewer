@@ -39,15 +39,9 @@ jobs:
         cmake --install build --prefix installed
         cd ..
     - name: Download OpenSSL
-      shell: bash
       run: |
         # TODO: think of better openssl preparation, which is qt binary dependency and no source is required
-        mkdir openssl
-        cd openssl
-        curl -O -L https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.2.1.zip
-        7z e openssl-3.2.1.zip openssl-3/x64/bin/libcrypto-3-x64.dll openssl-3/x64/bin/libssl-3-x64.dll
-        dir
-        cd ..
+        choco install openssl -y
     - name: Build
       env:
         CMAKE_PREFIX_PATH: ${{env.Qt6_Dir}};${{github.workspace}}\quazip_1.4\installed
@@ -55,7 +49,7 @@ jobs:
         cd SlackLogViewer
         mkdir build
         mkdir SlackLogViewer_windows_qt6
-        cmake -S ./ -B build -G "Visual Studio 17 2022" -DCMAKE_INSTALL_PREFIX="SlackLogViewer_windows_qt6" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_CONFIGURATION_TYPES=Release -DQT_MAJOR_VERSION=6 -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md -DOPENSSL_DIR="../openssl"
+        cmake -S ./ -B build -G "Visual Studio 17 2022" -DCMAKE_INSTALL_PREFIX="SlackLogViewer_windows_qt6" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_CONFIGURATION_TYPES=Release -DQT_MAJOR_VERSION=6 -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static-md -DOPENSSL_DIR="C:/Program Files/OpenSSL-Win64/bin"
         cmake --build build --config Release
         cmake --install build
     - name: Upload
